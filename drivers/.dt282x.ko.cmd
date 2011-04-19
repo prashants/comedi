@@ -1,0 +1,1 @@
+cmd_/home/cdeep/comedi/comedi/drivers/dt282x.ko := ld -r -m elf_i386 -T /usr/src/linux-headers-2.6.35-27-generic/scripts/module-common.lds --build-id -o /home/cdeep/comedi/comedi/drivers/dt282x.ko /home/cdeep/comedi/comedi/drivers/dt282x.o /home/cdeep/comedi/comedi/drivers/dt282x.mod.o
