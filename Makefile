@@ -21,6 +21,10 @@ clean:
 		rm -rf ./drivers/*.o ./drivers/*.ko ./drivers/*.mod.c ./drivers/.*.cmd
 		rm -rf ./kcomedilib/*.o ./kcomedilib/*.ko ./kcomedilib/*.mod.c ./kcomedilib/.*.cmd
 
+copy:
+		sudo cp drivers/ni_usb6008.ko /lib/modules/$(shell uname -r)/kernel/drivers/staging/comedi/drivers/ni_usb6008.ko
+		sudo depmod -a
+
 depend .depend dep:
 	        $(CC) $(CFLAGS) -M *.c > .depend
 
