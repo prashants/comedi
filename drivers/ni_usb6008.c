@@ -38,31 +38,26 @@
 static int ni_usb6008_probe(struct usb_interface *uinterf,
 			   const struct usb_device_id *id)
 {
-  printk(KERN_DEBUG "comedi: ni_usb6008: probe called\n");
+  printk(KERN_INFO "comedi: ni_usb6008: probe called\n");
+  return 0;
 }
 
 static void ni_usb6008_disconnect(struct usb_interface *intf)
 {
-  printk(KERN_DEBUG "comedi: ni_usb6008: disconnect called\n");
+  printk(KERN_INFO "comedi: ni_usb6008: disconnect called\n");
 }
 
 static int ni_usb6008_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 {
-  printk(KERN_DEBUG "comedi: ni_usb6008: attach called\n");
+  printk(KERN_INFO "comedi: ni_usb6008: attach called\n");
+  return 0;
 }
 
 static int ni_usb6008_detach(struct comedi_device *dev)
 {
-  printk(KERN_DEBUG "comedi: ni_usb6008: detach called\n");
+  printk(KERN_INFO "comedi: ni_usb6008: detach called\n");
+  return 0;
 }
-
-/* main driver struct */
-static struct comedi_driver comedidriver_ni_usb6008 = {
-	.driver_name = "ni_usb6008",
-	.module = THIS_MODULE,
-	.attach = ni_usb6008_attach,
-	.detach = ni_usb6008_detach,
-};
 
 /* Table with the USB-devices */
 static const struct usb_device_id ni_usb6008_table[] = {
@@ -71,6 +66,14 @@ static const struct usb_device_id ni_usb6008_table[] = {
 };
 
 MODULE_DEVICE_TABLE(usb, ni_usb6008_table);
+
+/* main driver struct */
+static struct comedi_driver comedidriver_ni_usb6008 = {
+	.driver_name = "ni_usb6008",
+	.module = THIS_MODULE,
+	.attach = ni_usb6008_attach,
+	.detach = ni_usb6008_detach,
+};
 
 /* The usb driver for ni_usb6008 */
 static struct usb_driver usbdriver_ni_usb6008 = {
@@ -83,7 +86,7 @@ static struct usb_driver usbdriver_ni_usb6008 = {
 /* registering the usb-system _and_ the comedi-driver */
 static int __init init_ni_usb6008(void)
 {
-	printk(KERN_DEBUG "comedi: ni_usb6008: init called\n");
+	printk(KERN_INFO "comedi: ni_usb6008: init called\n");
 	usb_register(&usbdriver_ni_usb6008);
 	comedi_driver_register(&comedidriver_ni_usb6008);
 	return 0;
@@ -92,7 +95,7 @@ static int __init init_ni_usb6008(void)
 /* deregistering the comedi driver and the usb-subsystem */
 static void __exit exit_ni_usb6008(void)
 {
-	printk(KERN_DEBUG "comedi: ni_usb6008: exit called\n");
+	printk(KERN_INFO "comedi: ni_usb6008: exit called\n");
 	comedi_driver_unregister(&comedidriver_ni_usb6008);
 	usb_deregister(&usbdriver_ni_usb6008);
 }
