@@ -18,8 +18,8 @@ default:
 
 clean:
 	        rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions
-		rm -rf ./drivers/*.o ./drivers/*.ko ./drivers/*.mod.c
-		rm -rf ./kcomedilib/*.o ./kcomedilib/*.ko ./kcomedilib/*.mod.c
+		rm -rf ./drivers/*.o ./drivers/*.ko ./drivers/*.mod.c ./drivers/.*.cmd
+		rm -rf ./kcomedilib/*.o ./kcomedilib/*.ko ./kcomedilib/*.mod.c ./kcomedilib/.*.cmd
 
 depend .depend dep:
 	        $(CC) $(CFLAGS) -M *.c > .depend
