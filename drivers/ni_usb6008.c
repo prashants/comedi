@@ -162,6 +162,77 @@ static struct ni_usb6008_struct ni_usb6008[NUM_NI_USB6008];
 
 static DECLARE_MUTEX(start_stop_sem);
 
+
+/******************************************************************************/
+/************************* READ / WRITE FUNCTIONS *****************************/
+/******************************************************************************/
+
+/* Mode 0 is used to get a single conversion on demand */
+static int ni_usb6008_ai_insn_read(struct comedi_device *dev,
+			       struct comedi_subdevice *s,
+			       struct comedi_insn *insn, unsigned int *data)
+{
+	int i;
+	unsigned int one = 0;
+	int chan, range;
+	int err = 0;
+	struct ni_usb6008_struct *this_usbduxsub = dev->private;
+
+	printk(KERN_INFO "comedi_: ni_usb6008: read analog device\n");
+
+	if (!this_usbduxsub)
+		return 0;
+
+	dev_dbg(&this_usbduxsub->interface->dev,
+		"comedi%d: ai_insn_read, insn->n=%d, insn->subdev=%d\n",
+		dev->minor, insn->n, insn->subdev);
+
+	down(&this_usbduxsub->sem);
+	if (!(this_usbduxsub->probed)) {
+		up(&this_usbduxsub->sem);
+		return -ENODEV;
+	}
+	if (this_usbduxsub->ai_cmd_running) {
+		dev_err(&this_usbduxsub->interface->dev,
+			"comedi%d: ai_insn_read not possible. "
+			"Async Command is running.\n", dev->minor);
+		up(&this_usbduxsub->sem);
+		return 0;
+	}
+
+	/* sample one channel */
+	chan = CR_CHAN(insn->chanspec);
+	range = CR_RANGE(insn->chanspec);
+	/* set command for the first channel */
+	//this_usbduxsub->dux_commands[1] = create_adc_command(chan, range);
+
+	/* adc commands */
+	//err = send_dux_commands(this_usbduxsub, SENDSINGLEAD);
+	if (err < 0) {
+		up(&this_usbduxsub->sem);
+		return err;
+	}
+
+	for (i = 0; i < insn->n; i++) {
+		//err = receive_dux_commands(this_usbduxsub, SENDSINGLEAD);
+		if (err < 0) {
+			up(&this_usbduxsub->sem);
+			return 0;
+		}
+		one = le16_to_cpu(this_usbduxsub->insnBuffer[1]);
+		if (CR_RANGE(insn->chanspec) <= 1)
+			one = one ^ 0x800;
+
+		data[i] = one;
+	}
+	up(&this_usbduxsub->sem);
+	return i;
+}
+
+/******************************************************************************/
+/********************** DEVICE SPECIFIC FUNCTIONS *****************************/
+/******************************************************************************/
+
 /*
  * Stops the data acquision
  * It should be safe to call this function from any context
@@ -636,7 +707,7 @@ static int ni_usb6008_attach(struct comedi_device *dev, struct comedi_devconfig 
 	/* length of the channellist */
 	s->len_chanlist = 8;
 	/* callback functions */
-	//s->insn_read = usbdux_ai_insn_read;
+	s->insn_read = ni_usb6008_ai_insn_read;
 	//s->do_cmdtest = usbdux_ai_cmdtest;
 	//s->do_cmd = usbdux_ai_cmd;
 	//s->cancel = usbdux_ai_cancel;
