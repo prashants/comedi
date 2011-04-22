@@ -1,1 +1,0 @@
-cmd_/home/cdeep/comedi/comedi/drivers/ni_atmio.ko := ld -r -m elf_i386 -T /usr/src/linux-headers-2.6.35-27-generic/scripts/module-common.lds --build-id -o /home/cdeep/comedi/comedi/drivers/ni_atmio.ko /home/cdeep/comedi/comedi/drivers/ni_atmio.o /home/cdeep/comedi/comedi/drivers/ni_atmio.mod.o

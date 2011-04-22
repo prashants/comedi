@@ -1,1 +1,0 @@
-cmd_/home/cdeep/comedi/comedi/drivers/c6xdigio.ko := ld -r -m elf_i386 -T /usr/src/linux-headers-2.6.35-27-generic/scripts/module-common.lds --build-id -o /home/cdeep/comedi/comedi/drivers/c6xdigio.ko /home/cdeep/comedi/comedi/drivers/c6xdigio.o /home/cdeep/comedi/comedi/drivers/c6xdigio.mod.o
