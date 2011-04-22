@@ -39,74 +39,40 @@
 #define NUM_NI_USB6008             16
 
 /* Input endpoint number: ISO/IRQ */
-#define ISO_IN_EP           6
+#define ISOINEP		6
 
 /* Output endpoint number: ISO/IRQ */
-#define ISO_OUT_EP          2
-
+#define ISOOUTEP	2
 
 /*
- * size of the input-buffer IN BYTES
+ * size of the input buffer IN BYTES
  */
 #define SIZE_IN_BUF	512
 
 /*
- * 16 bytes
+ * size of the single input buffer IN BYTES
  */
 #define SIZE_INSN_BUF	512
 
 /*
- * size of the buffer for the dux commands in bytes
+ * size of the output buffer IN BYTES
+ */
+#define SIZE_OUT_BUF	512
+
+/*
+ * size of the dux buffer IN BYTES
  */
 #define SIZE_DUX_BUF	256
 
-
-/* Number of in-URBs which receive the data: min=2 */
-#define NUM_IN_BUFFERS_FULL     5
-
-/* Number of out-URBs which send the data: min=2 */
-#define NUM_OUT_BUFFERS_FULL    5
-
-/* Number of in-URBs which receive the data: min=5 */
-/* must have more buffers due to buggy USB ctr */
-#define NUM_IN_BUFFERS_HIGH     10
-
-/* Number of out-URBs which send the data: min=5 */
-/* must have more buffers due to buggy USB ctr */
-#define NUM_OUT_BUFFERS_HIGH    10
-
-/* Size of one A/D value */
-#define SIZE_AD_IN          ((sizeof(int16_t)))
-
-
-/* Analogue in subdevice */
-#define SUBDEV_AD             0
-
-/* Analogue out subdevice */
-#define SUBDEV_DA             1
-
-/* Digital I/O */
-#define SUBDEV_DIO            2
-
-/* counter */
-#define SUBDEV_COUNTER        3
-
-/* timer aka pwm output */
-#define SUBDEV_PWM            4
-
-/* number of retries to get the right dux command */
-#define RETRIES 10
+/*
+ * number of DA command channels
+ */
+#define NUM_DAC_COMMANDS    8
 
 /*
  * number of subdevices
  */
 #define N_SUB_DEVICES	1
-
-/* 300Hz max frequ under PWM */
-#define MIN_PWM_PERIOD  ((long)(1E9/300))
-
-/* Default PWM frequency */
-#define PWM_DEFAULT_PERIOD ((long)(1E9/100))
 
 
 /* NI USB6008 STRUCTURE */
@@ -119,16 +85,21 @@ struct ni_usb6008_struct {
 	struct comedi_device *comedidev;	/* comedi device for the interrupt context */
 	int ifnum;				/* interface number */
 
-	short int ai_cmd_running;		/* asynchronous command is running */
-	short int ai_continous;			/* continous aquisition */
-	long int ai_sample_count;		/* number of samples to acquire */
-
 	short int high_speed;			/* is it USB_SPEED_HIGH or not? */
 
-	struct urb *urbIn;			/* BULK-transfer handling: urb */
-	int8_t *transfer_buffer;
+	int16_t *inBuffer;			/* input buffer for the ISO-transfer */
 	int16_t *insnBuffer;			/* input buffer for single insn */
-	uint8_t *dux_commands;			/* commands */
+	int16_t *outBuffer;			/* output buffer for single DA outputs */
+	int8_t *transfer_buffer;
+
+	struct urb *urbIn;			/* BULK-transfer handling: urb */
+	struct urb *urbOut;			/* BULK-transfer handling: urb */
+
+	int8_t *dac_commands; /* D/A commands */
+	int8_t *dux_commands; /* DUX commands */
+
+	short int ai_cmd_running;
+	short int ao_cmd_running;
 
 	/* semaphore for accessing device */
 	struct semaphore sem;
@@ -143,95 +114,29 @@ static DECLARE_MUTEX(start_stop_sem);
 /************************* READ / WRITE FUNCTIONS *****************************/
 /******************************************************************************/
 
-/* Mode 0 is used to get a single conversion on demand */
-static int ni_usb6008_ai_insn_read(struct comedi_device *dev,
-			       struct comedi_subdevice *s,
-			       struct comedi_insn *insn, unsigned int *data)
+static void ni_usb6008_ai_IsocIrq(struct urb *urb)
 {
-	int i;
-	unsigned int one = 0;
-	int chan, range;
-	int err = 0;
-	struct ni_usb6008_struct *this_usbduxsub = dev->private;
-
-	printk(KERN_INFO "comedi_: ni_usb6008: read analog device\n");
-
-	if (!this_usbduxsub)
-		return 0;
-
-	dev_dbg(&this_usbduxsub->interface->dev,
-		"comedi%d: ai_insn_read, insn->n=%d, insn->subdev=%d\n",
-		dev->minor, insn->n, insn->subdev);
-
-	down(&this_usbduxsub->sem);
-	if (!(this_usbduxsub->probed)) {
-		up(&this_usbduxsub->sem);
-		return -ENODEV;
-	}
-	if (this_usbduxsub->ai_cmd_running) {
-		dev_err(&this_usbduxsub->interface->dev,
-			"comedi%d: ai_insn_read not possible. "
-			"Async Command is running.\n", dev->minor);
-		up(&this_usbduxsub->sem);
-		return 0;
-	}
-
-	/* sample one channel */
-	chan = CR_CHAN(insn->chanspec);
-	range = CR_RANGE(insn->chanspec);
-	/* set command for the first channel */
-	//this_usbduxsub->dux_commands[1] = create_adc_command(chan, range);
-
-	/* adc commands */
-	//err = send_dux_commands(this_usbduxsub, SENDSINGLEAD);
-	if (err < 0) {
-		up(&this_usbduxsub->sem);
-		return err;
-	}
-
-	for (i = 0; i < insn->n; i++) {
-		//err = receive_dux_commands(this_usbduxsub, SENDSINGLEAD);
-		if (err < 0) {
-			up(&this_usbduxsub->sem);
-			return 0;
-		}
-		one = le16_to_cpu(this_usbduxsub->insnBuffer[1]);
-		if (CR_RANGE(insn->chanspec) <= 1)
-			one = one ^ 0x800;
-
-		data[i] = one;
-	}
-	up(&this_usbduxsub->sem);
-	return i;
+	printk(KERN_INFO "comedi_: ni_usb6008: ni_usb6008_ai_IsocIrq called\n");
 }
+
+static void ni_usb6008_ao_IsocIrq(struct urb *urb)
+{
+	printk(KERN_INFO "comedi_: ni_usb6008: ni_usb6008_ao_IsocIrq called\n");
+}
+
 
 /******************************************************************************/
 /********************** DEVICE SPECIFIC FUNCTIONS *****************************/
 /******************************************************************************/
-
-/*
- * Stops the data acquision
- * It should be safe to call this function from any context
- */
-static int ni_usb6008_unlink_InURBs(struct ni_usb6008_struct *ni_usb6008_tmp)
-{
-	printk(KERN_INFO "comedi_: ni_usb6008: unlink InURBs\n");
-
-	if (ni_usb6008_tmp && ni_usb6008_tmp->urbIn) {
-		ni_usb6008_tmp->ai_cmd_running = 0;
-		usb_kill_urb(ni_usb6008_tmp->urbIn);
-	}
-	printk(KERN_INFO "comedi_: ni_usb6008: "
-			"unlinked InURB\n");
-	return 0;
-}
 
 static void clean_up(struct ni_usb6008_struct *ni_usb6008_tmp)
 {
 	if (!ni_usb6008_tmp)
 		return;
 
-	printk(KERN_INFO "comedi_: ni_usb6008: clean up\n");
+	printk(KERN_INFO "comedi_: ni_usb6008: clean_up called\n");
+
+	dev_dbg(&ni_usb6008_tmp->interface->dev, "comedi_: clean up\n");
 
 	/* shows the usb subsystem that the driver is down */
 	if (ni_usb6008_tmp->interface)
@@ -239,301 +144,273 @@ static void clean_up(struct ni_usb6008_struct *ni_usb6008_tmp)
 
 	ni_usb6008_tmp->probed = 0;
 
-	/* cleaning up urbIn */
 	if (ni_usb6008_tmp->urbIn) {
-		/* waits until a running transfer is over */
+		ni_usb6008_tmp->ai_cmd_running = 0;
 		usb_kill_urb(ni_usb6008_tmp->urbIn);
-
-		kfree(ni_usb6008_tmp->transfer_buffer);
-		ni_usb6008_tmp->transfer_buffer = NULL;
-
+		kfree(ni_usb6008_tmp->urbIn->transfer_buffer);
+		ni_usb6008_tmp->urbIn->transfer_buffer = NULL;
 		usb_free_urb(ni_usb6008_tmp->urbIn);
 		ni_usb6008_tmp->urbIn = NULL;
 	}
-
+	if (ni_usb6008_tmp->urbOut) {
+		ni_usb6008_tmp->ao_cmd_running = 0;
+		usb_kill_urb(ni_usb6008_tmp->urbOut);
+		kfree(ni_usb6008_tmp->urbOut->transfer_buffer);
+		ni_usb6008_tmp->urbOut->transfer_buffer = NULL;
+		usb_free_urb(ni_usb6008_tmp->urbOut);
+		ni_usb6008_tmp->urbOut = NULL;
+	}
+	kfree(ni_usb6008_tmp->inBuffer);
+	ni_usb6008_tmp->inBuffer = NULL;
 	kfree(ni_usb6008_tmp->insnBuffer);
 	ni_usb6008_tmp->insnBuffer = NULL;
-
+	kfree(ni_usb6008_tmp->inBuffer);
+	ni_usb6008_tmp->inBuffer = NULL;
+	kfree(ni_usb6008_tmp->dac_commands);
+	ni_usb6008_tmp->dac_commands = NULL;
 	kfree(ni_usb6008_tmp->dux_commands);
 	ni_usb6008_tmp->dux_commands = NULL;
-
 	ni_usb6008_tmp->ai_cmd_running = 0;
+	ni_usb6008_tmp->ao_cmd_running = 0;
 }
 
-
-
+/* allocate memory for the urbs and initialise them */
 static int ni_usb6008_probe(struct usb_interface *uinterf,
-	const struct usb_device_id *id)
+			   const struct usb_device_id *id)
 {
-	int device_index = -1;
-	int counter = 0;
-	int result = 0;
 	struct usb_device *udev = interface_to_usbdev(uinterf);
+	struct device *dev = &uinterf->dev;
+	int i;
+	int index;
 
-	printk(KERN_INFO "comedi_: ni_usb6008: probe called\n");
+	printk(KERN_INFO "comedi_: ni_usb6008: ni_usb6008_probe called\n");
 
-	printk(KERN_INFO "comedi_: ni_usb6008: "
-		"locating a free structure for the usb-device\n");
+	dev_dbg(dev, "comedi_: usbdux_: "
+		"finding a free structure for the usb-device\n");
 
 	down(&start_stop_sem);
-
-	/* look for a free place in the ni_usb6008 array */
-	device_index = -1;
-	for (counter = 0; counter < NUM_NI_USB6008; counter++) {
-		if (!(ni_usb6008[counter].probed)) {
-			device_index = counter;
+	/* look for a free place in the usbdux array */
+	index = -1;
+	for (i = 0; i < NUM_NI_USB6008; i++) {
+		if (!(ni_usb6008[i].probed)) {
+			index = i;
 			break;
 		}
 	}
 
-	/* no more space available in the ni_usb6008 array */
-	if (device_index == -1) {
-		printk(KERN_ERR "comedi_: ni_usb6008: "
-			"too many devices ni_usb6008 connected.\n");
+	/* no more space */
+	if (index == -1) {
+		dev_err(dev, "Too many usbdux-devices connected.\n");
 		up(&start_stop_sem);
 		return -EMFILE;
 	}
-	printk(KERN_INFO "comedi_: ni_usb6008: "
-		"ni_usb6008[%d] is ready to connect to comedi.\n", device_index);
+	dev_dbg(dev, "comedi_: usbdux: "
+		"ni_usb6008[%d] is ready to connect to comedi.\n", index);
 
-	init_MUTEX(&(ni_usb6008[device_index].sem));
-
+	init_MUTEX(&(ni_usb6008[index].sem));
 	/* save a pointer to the usb device */
-	ni_usb6008[device_index].usbdev = udev;
+	ni_usb6008[index].usbdev = udev;
 
-	/* save the interface itself */
-	ni_usb6008[device_index].interface = uinterf;
-
+	/* 2.6: save the interface itself */
+	ni_usb6008[index].interface = uinterf;
 	/* get the interface number from the interface */
-	ni_usb6008[device_index].ifnum = uinterf->altsetting->desc.bInterfaceNumber;
-	printk(KERN_INFO "comedi_: ni_usb6008: "
-		"ifnum=%d\n", ni_usb6008[device_index].ifnum);
+	ni_usb6008[index].ifnum = uinterf->altsetting->desc.bInterfaceNumber;
+	/* hand the private data over to the usb subsystem */
+	usb_set_intfdata(uinterf, &(ni_usb6008[index]));
+
+	dev_dbg(dev, "comedi_: ni_usb6008: ifnum=%d\n", ni_usb6008[index].ifnum);
 
 	/* test if it is high speed (USB 2.0) */
-	if (ni_usb6008[device_index].usbdev->speed == USB_SPEED_HIGH) {
-		ni_usb6008[device_index].high_speed = USB_SPEED_HIGH;
-		printk(KERN_INFO "comedi_: ni_usb6008: "
-			"USB high speed device\n");
+	if (ni_usb6008[index].usbdev->speed == USB_SPEED_HIGH) {
+		ni_usb6008[index].high_speed = 1;
+		printk(KERN_INFO "comedi_: ni_usb6008: connected as high speed device");
+	} else {
+		ni_usb6008[index].high_speed = 0;
+		printk(KERN_INFO "comedi_: ni_usb6008: connected as normal speed device");
 	}
 
-	/* hand the private data over to the usb subsystem */
-	usb_set_intfdata(uinterf, &(ni_usb6008[device_index]));
-
-
-	
+	/* create space for the commands of the DA converter */
+	ni_usb6008[index].dac_commands = kzalloc(NUM_DAC_COMMANDS, GFP_KERNEL);
+	if (!ni_usb6008[index].dac_commands) {
+		dev_err(dev, "comedi_: ni_usb6008: "
+			"error alloc space for dac commands\n");
+		clean_up(&(ni_usb6008[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
+	}
 	/* create space for the commands going to the usb device */
-	ni_usb6008[device_index].dux_commands = kmalloc(SIZE_DUX_BUF, GFP_KERNEL);
-	if (!ni_usb6008[device_index].dux_commands) {
-		printk(KERN_ERR "comedi_: ni_usb6008: "
-			"could not allocate space for dac commands\n");
-		clean_up(&(ni_usb6008[device_index]));
+	ni_usb6008[index].dux_commands = kzalloc(SIZE_DUX_BUF, GFP_KERNEL);
+	if (!ni_usb6008[index].dux_commands) {
+		dev_err(dev, "comedi_: usbdux: "
+			"error alloc space for dac commands\n");
+		clean_up(&(ni_usb6008[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
+	}
+	/* create space for the in buffer and set it to zero */
+	ni_usb6008[index].inBuffer = kzalloc(SIZE_IN_BUF, GFP_KERNEL);
+	if (!(ni_usb6008[index].inBuffer)) {
+		dev_err(dev, "comedi_: ni_usb6008: "
+			"could not alloc space for inBuffer\n");
+		clean_up(&(ni_usb6008[index]));
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
 	/* create space of the instruction buffer */
-	ni_usb6008[device_index].insnBuffer = kmalloc(SIZE_INSN_BUF, GFP_KERNEL);
-	if (!ni_usb6008[device_index].insnBuffer) {
-		printk(KERN_ERR "comedi_: ni_usb6008: "
-			"could not allocate space for insnBuffer\n");
-		clean_up(&(ni_usb6008[device_index]));
+	ni_usb6008[index].insnBuffer = kzalloc(SIZE_INSN_BUF, GFP_KERNEL);
+	if (!(ni_usb6008[index].insnBuffer)) {
+		dev_err(dev, "comedi_: ni_usb6008: "
+			"could not alloc space for insnBuffer\n");
+		clean_up(&(ni_usb6008[index]));
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
-
-	
-	/* setting to default setting 0. */
-	result = usb_set_interface(ni_usb6008[device_index].usbdev,
-			      ni_usb6008[device_index].ifnum, 0);
-	if (result < 0) {
-		printk(KERN_ERR "comedi_: ni_usb6008: "
-			"could not set alternate setting 0\n");
-		clean_up(&(ni_usb6008[device_index]));
+	/* create space for the outbuffer */
+	ni_usb6008[index].outBuffer = kzalloc(SIZE_OUT_BUF, GFP_KERNEL);
+	if (!(ni_usb6008[index].outBuffer)) {
+		dev_err(dev, "comedi_: ni_usb6008: "
+			"could not alloc space for outBuffer\n");
+		clean_up(&(ni_usb6008[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
+	}
+	/* setting to alternate setting 3: enabling iso ep and bulk ep. */
+	i = usb_set_interface(ni_usb6008[index].usbdev,
+			      ni_usb6008[index].ifnum, 3);
+	if (i < 0) {
+		dev_err(dev, "comedi_: ni_usb6008%d: "
+			"could not set alternate setting 3 in high speed.\n",
+			index);
+		clean_up(&(ni_usb6008[index]));
 		up(&start_stop_sem);
 		return -ENODEV;
 	}
 
-
-	ni_usb6008[device_index].urbIn = usb_alloc_urb(0, GFP_KERNEL);
-	if (!ni_usb6008[device_index].urbIn) {
-		printk(KERN_ERR "comedi_: ni_usb6008: "
-			"could not allocate In urb\n");
-		clean_up(&(ni_usb6008[device_index]));
+	ni_usb6008[index].urbIn = kzalloc(sizeof(struct urb *), GFP_KERNEL);
+	if (!(ni_usb6008[index].urbIn)) {
+		dev_err(dev, "comedi_: ni_usb6008: Could not alloc. urbIn array\n");
+		clean_up(&(ni_usb6008[index]));
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
-	ni_usb6008[device_index].transfer_buffer = kmalloc(SIZE_IN_BUF, GFP_KERNEL);
-	if (!ni_usb6008[device_index].transfer_buffer) {
-		printk(KERN_ERR "comedi_: ni_usb6008: "
-			"could not allocate transfer buffer\n");
-		clean_up(&(ni_usb6008[device_index]));
+	ni_usb6008[index].urbIn = usb_alloc_urb(1, GFP_KERNEL);
+	if (ni_usb6008[index].urbIn == NULL) {
+		dev_err(dev, "comedi_: ni_usb6008%d: "
+			"Could not alloc. urb\n", index);
+		clean_up(&(ni_usb6008[index]));
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
+	ni_usb6008[index].urbIn->dev = ni_usb6008[index].usbdev;
+	ni_usb6008[index].urbIn->context = NULL;
+	ni_usb6008[index].urbIn->pipe = usb_rcvisocpipe(ni_usb6008[index].usbdev, ISOINEP);
+	ni_usb6008[index].urbIn->transfer_flags = URB_ISO_ASAP;
+	ni_usb6008[index].urbIn->transfer_buffer = kzalloc(SIZE_IN_BUF, GFP_KERNEL);
+	if (!(ni_usb6008[index].urbIn->transfer_buffer)) {
+		dev_err(dev, "comedi_: ni_usb6008%d: "
+			"could not alloc. transb.\n", index);
+		clean_up(&(ni_usb6008[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
+	}
+	ni_usb6008[index].urbIn->complete = ni_usb6008_ai_IsocIrq;
+	ni_usb6008[index].urbIn->number_of_packets = 1;
+	ni_usb6008[index].urbIn->transfer_buffer_length = SIZE_IN_BUF;
+	ni_usb6008[index].urbIn->iso_frame_desc[0].offset = 0;
+	ni_usb6008[index].urbIn->iso_frame_desc[0].length = SIZE_IN_BUF;
 
+	/* out */
+	ni_usb6008[index].urbOut = kzalloc(sizeof(struct urb *), GFP_KERNEL);
+	if (!(ni_usb6008[index].urbOut)) {
+		dev_err(dev, "comedi_: ni_usb6008: "
+			"Could not alloc. urbOut array\n");
+		clean_up(&(ni_usb6008[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
+	}
+	ni_usb6008[index].urbOut = usb_alloc_urb(1, GFP_KERNEL);
+	if (ni_usb6008[index].urbOut == NULL) {
+		dev_err(dev, "comedi_: ni_usb6008%d: "
+				"Could not alloc. urb\n", index);
+		clean_up(&(ni_usb6008[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
+	}
+	ni_usb6008[index].urbOut->dev = ni_usb6008[index].usbdev;
+	ni_usb6008[index].urbOut->context = NULL;
+	ni_usb6008[index].urbOut->pipe = usb_sndisocpipe(ni_usb6008[index].usbdev, ISOOUTEP);
+	ni_usb6008[index].urbOut->transfer_flags = URB_ISO_ASAP;
+	ni_usb6008[index].urbOut->transfer_buffer = kzalloc(SIZE_OUT_BUF, GFP_KERNEL);
+	if (!(ni_usb6008[index].urbOut->transfer_buffer)) {
+		dev_err(dev, "comedi_: ni_usb6008%d: "
+			"could not alloc. transb.\n", index);
+		clean_up(&(ni_usb6008[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
+	}
+	ni_usb6008[index].urbOut->complete = ni_usb6008_ao_IsocIrq;
+	ni_usb6008[index].urbOut->number_of_packets = 1;
+	ni_usb6008[index].urbOut->transfer_buffer_length = SIZE_OUT_BUF;
+	ni_usb6008[index].urbOut->iso_frame_desc[0].offset = 0;
+	ni_usb6008[index].urbOut->iso_frame_desc[0].length = SIZE_OUT_BUF;
+	if (ni_usb6008[index].high_speed) {
+		/* uframes */
+		ni_usb6008[index].urbOut->interval = 8;
+	} else {
+		/* frames */
+		ni_usb6008[index].urbOut->interval = 1;
+	}
 
-	ni_usb6008[device_index].ai_cmd_running = 0;
+	ni_usb6008[index].ai_cmd_running = 0;
+	ni_usb6008[index].ao_cmd_running = 0;
 
-	/* we have reached the bottom of the function */
-	ni_usb6008[device_index].probed = 1;
+	/* we've reached the bottom of the function */
+	ni_usb6008[index].probed = 1;
 	up(&start_stop_sem);
 
-	result = comedi_usb_auto_config(udev, BOARDNAME);
-	printk(KERN_INFO "result of comedi_usb_auto_config is %d", result);
+	comedi_usb_auto_config(usbdev, BOARDNAME);
 
-	printk(KERN_INFO "comedi_: ni_usb6008: " 
-		 "%d has been successfully initialised\n", device_index);
+	dev_info(dev, "comedi_: ni_usb6008%d"
+		 "has been successfully initialised.\n", index);
 	/* success */
 	return 0;
 }
 
-static void ni_usb6008_disconnect(struct usb_interface *uinterf)
+static void ni_usb6008_disconnect(struct usb_interface *intf)
 {
-	struct ni_usb6008_struct *ni_usb6008_tmp = usb_get_intfdata(uinterf);
-	struct usb_device *udev = interface_to_usbdev(uinterf);
+	struct ni_usb6008_struct *ni_usb6008_tmp = usb_get_intfdata(intf);
+	struct usb_device *udev = interface_to_usbdev(intf);
 
-	printk(KERN_INFO "comedi_: ni_usb6008: disconnect called\n");
+	printk(KERN_INFO "comedi_: ni_usb6008: ni_usb6008_disconnect called\n");
 
 	if (!ni_usb6008_tmp) {
-		printk(KERN_ERR "comedi_: ni_usb6008: " 
-			"disconnect called with null pointer.\n");
+		dev_err(&intf->dev,
+			"comedi_: disconnect called with null pointer.\n");
 		return;
 	}
 	if (ni_usb6008_tmp->usbdev != udev) {
-		printk(KERN_ERR "comedi_: ni_usb6008: " 
-			"BUG! called with wrong ponter!\n");
+		dev_err(&intf->dev, "comedi_: BUG! called with wrong ptr!!!\n");
 		return;
 	}
-
 	comedi_usb_auto_unconfig(udev);
-
 	down(&start_stop_sem);
 	down(&ni_usb6008_tmp->sem);
 	clean_up(ni_usb6008_tmp);
 	up(&ni_usb6008_tmp->sem);
 	up(&start_stop_sem);
-	printk(KERN_INFO "comedi_: ni_usb6008: disconnected from the usb\n");
+	dev_dbg(&intf->dev, "comedi_: disconnected from the usb\n");
 }
 
+/* is called when comedi-config is called */
 static int ni_usb6008_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 {
- 	int ret;
-	int device_index;
-	int counter;
-	struct comedi_subdevice *s = NULL;
-	dev->private = NULL;
-
-	printk(KERN_INFO "comedi_: ni_usb6008: attach called\n");
-
-	down(&start_stop_sem);
-	device_index = -1;
-	for (counter = 0; counter < NUM_NI_USB6008; counter++) {
-		if (ni_usb6008[counter].probed && !ni_usb6008[counter].attached) {
-			device_index = counter;
-			break;
-		}
-	}
-
-	if (device_index < 0) {
-		printk(KERN_ERR "comedi%d: ni_usb6008: error: attach failed, "
-		       "no usbduxfast devs connected to the usb bus.\n",
-		       dev->minor);
-		up(&start_stop_sem);
-		return -ENODEV;
-	}
-
-	down(&(ni_usb6008[device_index].sem));
-	/* pointer back to the corresponding comedi device */
-	ni_usb6008[device_index].comedidev = dev;
-
-	dev->board_name = BOARDNAME;
-
-	/* set number of subdevices */
-	dev->n_subdevices = N_SUB_DEVICES;
-
-	/* allocate space for the subdevices */
-	ret = alloc_subdevices(dev, N_SUB_DEVICES);
-	if (ret < 0) {
-		printk(KERN_ERR "comedi%d: ni_usb6008: error alloc space for "
-		       "subdev\n", dev->minor);
-		up(&(ni_usb6008[device_index].sem));
-		up(&start_stop_sem);
-		return ret;
-	}
-
-	printk(KERN_INFO "comedi%d: ni_usb6008: usb-device %d is attached to "
-	       "comedi.\n", dev->minor, device_index);
-
-	/* private structure is also simply the usb-structure */
-	dev->private = ni_usb6008 + device_index;
-	/* the first subdevice is the A/D converter */
-	s = dev->subdevices + SUBDEV_AD;
-	/*
-	 * the URBs get the comedi subdevice which is responsible for reading
-	 * this is the subdevice which reads data
-	 */
-	dev->read_subdev = s;
-	/* the subdevice receives as private structure the usb-structure */
-	s->private = NULL;
-	/* analog input */
-	s->type = COMEDI_SUBD_AI;
-	/* readable and ref is to ground */
-	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_CMD_READ;
-	/* 16 channels */
-	s->n_chan = 16;
-	/* length of the channellist */
-	s->len_chanlist = 16;
-	/* callback functions */
-	//s->insn_read = usbduxfast_ai_insn_read;
-	//s->do_cmdtest = usbduxfast_ai_cmdtest;
-	//s->do_cmd = usbduxfast_ai_cmd;
-	//s->cancel = usbduxfast_ai_cancel;
-	/* max value from the A/D converter (12bit+1 bit for overflow) */
-	s->maxdata = 0x1000;
-	/* range table to convert to physical units */
-	//s->range_table = &range_usbduxfast_ai_range;
-
-	/* finally decide that it's attached */
-	ni_usb6008[device_index].attached = 1;
-
-	up(&(ni_usb6008[device_index].sem));
-	up(&start_stop_sem);
-	printk(KERN_INFO "comedi%d: successfully attached to usbduxfast.\n",
-	       dev->minor);
-
+	printk(KERN_INFO "comedi_: ni_usb6008: ni_usb6008_attach called\n");
 	return 0;
 }
 
 static int ni_usb6008_detach(struct comedi_device *dev)
 {
-	struct ni_usb6008_struct *ni_usb6008_tmp;
-
-	printk(KERN_INFO "comedi_: ni_usb6008: detach called\n");
-
-	if (!dev) {
-		printk(KERN_ERR "comedi_: ni_usb6008: "
-			"detach without dev variable\n");
-		return -EFAULT;
-	}
-
-	ni_usb6008_tmp = dev->private;
-
-	if (!ni_usb6008_tmp) {
-		printk(KERN_ERR "comedi_: ni_usb6008: "
-			"detach without ptr to ni_usb6008\n");
-		return -EFAULT;
-	}
-
-	printk(KERN_INFO "comedi_: ni_usb6008: detached usb device %d\n", dev->minor);
-
-	down(&ni_usb6008_tmp->sem);
-	/* Don't allow detach to free the private structure */
-	/* It's one entry of of ni_usb6008[] */
-	dev->private = NULL;
-	ni_usb6008_tmp->attached = 0;
-	ni_usb6008_tmp->comedidev = NULL;
-	printk(KERN_INFO "comedi_: ni_usb6008: "
-		"successfully removed device %d\n", dev->minor);
-	up(&ni_usb6008_tmp->sem);
+	printk(KERN_INFO "comedi_: ni_usb6008: ni_usb6008_detach called\n");
 	return 0;
 }
 
