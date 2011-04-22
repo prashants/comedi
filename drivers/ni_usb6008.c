@@ -368,7 +368,7 @@ static int ni_usb6008_probe(struct usb_interface *uinterf,
 	ni_usb6008[index].probed = 1;
 	up(&start_stop_sem);
 
-	comedi_usb_auto_config(usbdev, BOARDNAME);
+	comedi_usb_auto_config(udev, BOARDNAME);
 
 	dev_info(dev, "comedi_: ni_usb6008%d"
 		 "has been successfully initialised.\n", index);
