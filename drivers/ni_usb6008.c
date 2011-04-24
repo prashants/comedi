@@ -76,18 +76,21 @@ enum {
 };
 
 static const struct usb_device_id vmk80xx_id_table[] = {
-	{USB_DEVICE(0x10cf, 0x5500), .driver_info = DEVICE_VMK8055},
-	{USB_DEVICE(0x10cf, 0x5501), .driver_info = DEVICE_VMK8055},
-	{USB_DEVICE(0x10cf, 0x5502), .driver_info = DEVICE_VMK8055},
-	{USB_DEVICE(0x10cf, 0x5503), .driver_info = DEVICE_VMK8055},
-	{USB_DEVICE(0x10cf, 0x8061), .driver_info = DEVICE_VMK8061},
-	{USB_DEVICE(0x10cf, 0x8062), .driver_info = DEVICE_VMK8061},
-	{USB_DEVICE(0x10cf, 0x8063), .driver_info = DEVICE_VMK8061},
-	{USB_DEVICE(0x10cf, 0x8064), .driver_info = DEVICE_VMK8061},
-	{USB_DEVICE(0x10cf, 0x8065), .driver_info = DEVICE_VMK8061},
-	{USB_DEVICE(0x10cf, 0x8066), .driver_info = DEVICE_VMK8061},
-	{USB_DEVICE(0x10cf, 0x8067), .driver_info = DEVICE_VMK8061},
-	{USB_DEVICE(0x10cf, 0x8068), .driver_info = DEVICE_VMK8061},
+	{USB_DEVICE(0x06E6, 0xC200), .driver_info = DEVICE_VMK8055}, /* TEST TIGER DIRECT */
+	{USB_DEVICE(0x3923, 0x717A), .driver_info = DEVICE_VMK8061}, /* NI 6008 */
+
+//	{USB_DEVICE(0x10cf, 0x5500), .driver_info = DEVICE_VMK8055},
+//	{USB_DEVICE(0x10cf, 0x5501), .driver_info = DEVICE_VMK8055},
+//	{USB_DEVICE(0x10cf, 0x5502), .driver_info = DEVICE_VMK8055},
+//	{USB_DEVICE(0x10cf, 0x5503), .driver_info = DEVICE_VMK8055},
+//	{USB_DEVICE(0x10cf, 0x8061), .driver_info = DEVICE_VMK8061},
+//	{USB_DEVICE(0x10cf, 0x8062), .driver_info = DEVICE_VMK8061},
+//	{USB_DEVICE(0x10cf, 0x8063), .driver_info = DEVICE_VMK8061},
+//	{USB_DEVICE(0x10cf, 0x8064), .driver_info = DEVICE_VMK8061},
+//	{USB_DEVICE(0x10cf, 0x8065), .driver_info = DEVICE_VMK8061},
+//	{USB_DEVICE(0x10cf, 0x8066), .driver_info = DEVICE_VMK8061},
+//	{USB_DEVICE(0x10cf, 0x8067), .driver_info = DEVICE_VMK8061},
+//	{USB_DEVICE(0x10cf, 0x8068), .driver_info = DEVICE_VMK8061},
 	{}			/* terminating entry */
 };
 
@@ -250,7 +253,7 @@ static void vmk80xx_tx_callback(struct urb *urb)
 	struct vmk80xx_usb *dev = urb->context;
 	int stat = urb->status;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	if (stat && !(stat == -ENOENT
 		      || stat == -ECONNRESET || stat == -ESHUTDOWN))
@@ -270,7 +273,7 @@ static void vmk80xx_rx_callback(struct urb *urb)
 	struct vmk80xx_usb *dev = urb->context;
 	int stat = urb->status;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	switch (stat) {
 	case 0:
@@ -308,7 +311,7 @@ static int vmk80xx_check_data_link(struct vmk80xx_usb *dev)
 	unsigned int tx_pipe, rx_pipe;
 	unsigned char tx[1], rx[2];
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	tx_pipe = usb_sndbulkpipe(dev->udev, 0x01);
 	rx_pipe = usb_rcvbulkpipe(dev->udev, 0x81);
@@ -330,7 +333,7 @@ static void vmk80xx_read_eeprom(struct vmk80xx_usb *dev, int flag)
 	unsigned char tx[1], rx[64];
 	int cnt;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	tx_pipe = usb_sndbulkpipe(dev->udev, 0x01);
 	rx_pipe = usb_rcvbulkpipe(dev->udev, 0x81);
@@ -357,7 +360,7 @@ static int vmk80xx_reset_device(struct vmk80xx_usb *dev)
 	int ival;
 	size_t size;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!urb)
@@ -395,7 +398,7 @@ static void vmk80xx_build_int_urb(struct urb *urb, int flag)
 	void (*callback) (struct urb *);
 	int ival;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	if (flag & URB_RCV_FLAG) {
 		rx_addr = dev->ep_rx->bEndpointAddress;
@@ -422,7 +425,7 @@ static void vmk80xx_do_bulk_msg(struct vmk80xx_usb *dev)
 	unsigned int tx_pipe, rx_pipe;
 	size_t size;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	set_bit(TRANS_IN_BUSY, &dev->flags);
 	set_bit(TRANS_OUT_BUSY, &dev->flags);
@@ -449,7 +452,7 @@ static int vmk80xx_read_packet(struct vmk80xx_usb *dev)
 	struct urb *urb;
 	int retval;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	if (!dev->intf)
 		return -ENODEV;
@@ -497,7 +500,7 @@ static int vmk80xx_write_packet(struct vmk80xx_usb *dev, int cmd)
 	struct urb *urb;
 	int retval;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	if (!dev->intf)
 		return -ENODEV;
@@ -569,7 +572,7 @@ static int vmk80xx_ai_rinsn(struct comedi_device *cdev,
 	int chan, reg[2];
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_IN);
 
@@ -618,7 +621,7 @@ static int vmk80xx_ao_winsn(struct comedi_device *cdev,
 	int chan, cmd, reg;
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_OUT);
 
@@ -660,7 +663,7 @@ static int vmk80xx_ao_rinsn(struct comedi_device *cdev,
 	int chan, reg;
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_IN);
 
@@ -693,7 +696,7 @@ static int vmk80xx_di_rinsn(struct comedi_device *cdev,
 	int reg, inp;
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_IN);
 
@@ -738,7 +741,7 @@ static int vmk80xx_do_winsn(struct comedi_device *cdev,
 	int reg, cmd;
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_OUT);
 
@@ -787,7 +790,7 @@ static int vmk80xx_do_rinsn(struct comedi_device *cdev,
 	int chan, reg, mask;
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_IN);
 
@@ -819,7 +822,7 @@ static int vmk80xx_cnt_rinsn(struct comedi_device *cdev,
 	int chan, reg[2];
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_IN);
 
@@ -868,7 +871,7 @@ static int vmk80xx_cnt_cinsn(struct comedi_device *cdev,
 	int chan, cmd, reg;
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_OUT);
 
@@ -911,7 +914,7 @@ static int vmk80xx_cnt_winsn(struct comedi_device *cdev,
 	int chan, cmd;
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_OUT);
 
@@ -955,7 +958,7 @@ static int vmk80xx_pwm_rinsn(struct comedi_device *cdev,
 	int reg[2];
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_IN);
 
@@ -987,7 +990,7 @@ static int vmk80xx_pwm_winsn(struct comedi_device *cdev,
 	int reg[2], cmd;
 	int n;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	rudimentary_check(DIR_OUT);
 
@@ -1035,7 +1038,7 @@ vmk80xx_attach(struct comedi_device *cdev, struct comedi_devconfig *it)
 	struct comedi_subdevice *s;
 	int minor;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	mutex_lock(&glb_mutex);
 
@@ -1154,7 +1157,7 @@ static int vmk80xx_detach(struct comedi_device *cdev)
 	struct vmk80xx_usb *dev;
 	int minor;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	if (!cdev)
 		return -EFAULT;
@@ -1188,7 +1191,7 @@ vmk80xx_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	struct usb_endpoint_descriptor *ep_desc;
 	size_t size;
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	mutex_lock(&glb_mutex);
 
@@ -1207,28 +1210,35 @@ vmk80xx_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	dev->count = i;
 
 	iface_desc = intf->cur_altsetting;
-	if (iface_desc->desc.bNumEndpoints != 2)
-		goto error;
+
+	printk(KERN_INFO "ni_usb6008 : bNumEndpoints = %d", iface_desc->desc.bNumEndpoints);
+
+	//if (iface_desc->desc.bNumEndpoints != 2)
+	//	goto error;
 
 	for (i = 0; i < iface_desc->desc.bNumEndpoints; i++) {
 		ep_desc = &iface_desc->endpoint[i].desc;
 
 		if (usb_endpoint_is_int_in(ep_desc)) {
+			printk(KERN_INFO "ni_usb6008 : int in endpoint located");
 			dev->ep_rx = ep_desc;
 			continue;
 		}
 
 		if (usb_endpoint_is_int_out(ep_desc)) {
+			printk(KERN_INFO "ni_usb6008 : int out endpoint located");
 			dev->ep_tx = ep_desc;
 			continue;
 		}
 
 		if (usb_endpoint_is_bulk_in(ep_desc)) {
+			printk(KERN_INFO "ni_usb6008 : bulk in endpoint located");
 			dev->ep_rx = ep_desc;
 			continue;
 		}
 
 		if (usb_endpoint_is_bulk_out(ep_desc)) {
+			printk(KERN_INFO "ni_usb6008 : bulk out endpoint located");
 			dev->ep_tx = ep_desc;
 			continue;
 		}
@@ -1334,7 +1344,7 @@ static void vmk80xx_disconnect(struct usb_interface *intf)
 {
 	struct vmk80xx_usb *dev = usb_get_intfdata(intf);
 
-	dbgvm("vmk80xx: %s\n", __func__);
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 
 	if (!dev)
 		return;
@@ -1358,6 +1368,12 @@ static void vmk80xx_disconnect(struct usb_interface *intf)
 	mutex_unlock(&glb_mutex);
 }
 
+EXPORT_SYMBOL(vmk80xx_probe);
+EXPORT_SYMBOL(vmk80xx_disconnect);
+EXPORT_SYMBOL(vmk80xx_attach);
+EXPORT_SYMBOL(vmk80xx_detach);
+
+
 /* TODO: Add support for suspend, resume, pre_reset,
  * post_reset and flush */
 static struct usb_driver vmk80xx_driver = {
@@ -1376,6 +1392,7 @@ static struct comedi_driver driver_vmk80xx = {
 
 static int __init vmk80xx_init(void)
 {
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 	printk(KERN_INFO "vmk80xx: version 0.8.01 "
 	       "Manuel Gebele <forensixs@gmx.de>\n");
 	usb_register(&vmk80xx_driver);
@@ -1384,6 +1401,7 @@ static int __init vmk80xx_init(void)
 
 static void __exit vmk80xx_exit(void)
 {
+	printk(KERN_INFO "vmk80xx: %s\n", __func__);
 	comedi_driver_unregister(&driver_vmk80xx);
 	usb_deregister(&vmk80xx_driver);
 }
