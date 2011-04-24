@@ -864,7 +864,7 @@ static int comedi_auto_config(struct device *hardware_device,
 	mutex_lock(&dev_file_info->device->mutex);
 	printk(KERN_INFO "driver: %s 12\n", __func__);
 	retval = comedi_device_attach(dev_file_info->device, &it);
-	printk(KERN_INFO "driver: %s 14\n", __func__);
+	printk(KERN_INFO "driver: %s 13\n", __func__);
 	mutex_unlock(&dev_file_info->device->mutex);
 	printk(KERN_INFO "driver: %s 14\n", __func__);
 cleanup:
@@ -883,6 +883,7 @@ static void comedi_auto_unconfig(struct device *hardware_device)
 	if (minor == NULL)
 		return;
 	printk(KERN_INFO "driver: %s 1\n", __func__);
+	printk(KERN_INFO "driver: %s *minor = %d COMEDI_NUM_BOARD_MINORS = %d\n", __func__, *minor, COMEDI_NUM_BOARD_MINORS);
 	BUG_ON(*minor >= COMEDI_NUM_BOARD_MINORS);
 	printk(KERN_INFO "driver: %s 2\n", __func__);
 	comedi_free_board_minor(*minor);
