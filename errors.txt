@@ -1,0 +1,233 @@
+Apr 24 17:33:58 ubuntupc kernel: [ 1018.735586] 5:2:1: endpoint lacks sample rate attribute bit, cannot set.
+Apr 24 17:34:08 ubuntupc kernel: [ 1028.902463] ni_usb6008: usbdux_dio_insn_bits
+Apr 24 17:34:08 ubuntupc kernel: [ 1028.902471] ni_usb6008: send_dux_commands
+Apr 24 17:34:08 ubuntupc kernel: [ 1028.902479] usbdux 6-1:1.0: comedi0: could not transmit dux_command to the usb-device, err=-22
+Apr 24 17:34:08 ubuntupc kernel: [ 1028.902504] ni_usb6008: usbdux_ai_cmdtest
+Apr 24 17:34:08 ubuntupc kernel: [ 1028.902542] ni_usb6008: usbdux_ai_cmdtest
+Apr 24 17:34:08 ubuntupc kernel: [ 1028.902546] ni_usb6008: usbdux_ai_cmdtest
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.590987] usb 6-1: USB disconnect, address 5
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591066] ni_usb6008: usbduxsub_disconnect
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591072] driver: comedi_usb_auto_unconfig
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591076] driver: comedi_auto_unconfig
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591080] driver: comedi_auto_unconfig 1
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591083] driver: comedi_auto_unconfig 2
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591191] ni_usb6008: usbdux_detach
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591306] driver: comedi_auto_unconfig 3
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591310] driver: comedi_auto_unconfig 4
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591314] driver: comedi_auto_unconfig end
+Apr 24 17:35:53 ubuntupc kernel: [ 1133.591317] driver: comedi_usb_auto_unconfig end
+
+
+Apr 24 19:27:51 ubuntupc kernel: [  105.745053] ni_usb6008: usbdux_dio_insn_bits
+Apr 24 19:27:51 ubuntupc kernel: [  105.745062] ni_usb6008: send_dux_commands
+Apr 24 19:27:51 ubuntupc kernel: [  105.745095] ni_usb6008: usbdux_ai_cmdtest
+Apr 24 19:27:51 ubuntupc kernel: [  105.745135] ni_usb6008: usbdux_ai_cmdtest
+Apr 24 19:27:51 ubuntupc kernel: [  105.745140] ni_usb6008: usbdux_ai_cmdtest
+
+
+
+Apr 24 17:45:45 ubuntupc kernel: [   33.451660] ip6_tables: (C) 2000-2006 Netfilter Core Team
+Apr 24 17:45:45 ubuntupc kernel: [   33.533165] lo: Disabled Privacy Extensions
+Apr 24 17:45:45 ubuntupc kernel: [   33.630023] eth0: no IPv6 routers present
+Apr 24 17:46:07 ubuntupc kernel: [   55.910057] usb 6-1: new full speed USB device using ohci_hcd and address 2
+Apr 24 17:46:07 ubuntupc kernel: [   56.257445] generic-usb 0003:06E6:C200.0002: hiddev96,hidraw1: USB HID v1.00 Device [TigerJet Network, Inc. USB Internet Phone by TigerJet] on usb-0000:00:13.1-1/input4
+Apr 24 17:46:08 ubuntupc kernel: [   56.393549] comedi: version 0.7.76 - http://www.comedi.org
+Apr 24 17:46:08 ubuntupc kernel: [   56.423814] ni_usb6008: init_usbdux
+Apr 24 17:46:08 ubuntupc kernel: [   56.423816] ni_usb6008: v2.4:Stirling/ITL USB-DUX -- Bernd.Porr@f2s.com
+Apr 24 17:46:08 ubuntupc kernel: [   56.423831] ni_usb6008: usbduxsub_probe
+Apr 24 17:46:08 ubuntupc kernel: [   56.423833] ni_usb6008: interface length 9
+Apr 24 17:46:08 ubuntupc kernel: [   56.423834] ni_usb6008: interface desc type 4
+Apr 24 17:46:08 ubuntupc kernel: [   56.423835] ni_usb6008: interface inf number 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.423836] ni_usb6008: interface alt settings 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.423837] ni_usb6008: interface num nedpoints 2
+Apr 24 17:46:08 ubuntupc kernel: [   56.423838] ni_usb6008: interface if class 8
+Apr 24 17:46:08 ubuntupc kernel: [   56.423839] ni_usb6008: interface if sub class 6
+Apr 24 17:46:08 ubuntupc kernel: [   56.423840] ni_usb6008: interface if protocol 80
+Apr 24 17:46:08 ubuntupc kernel: [   56.423841] ni_usb6008: interface i interface 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.423842] ni_usb6008: interface num altsettings 1d
+Apr 24 17:46:08 ubuntupc kernel: [   56.423843] ni_usb6008: interface minor 0d
+Apr 24 17:46:08 ubuntupc kernel: [   56.423850] driver: comedi_usb_auto_config
+Apr 24 17:46:08 ubuntupc kernel: [   56.423851] driver: comedi_auto_config
+Apr 24 17:46:08 ubuntupc kernel: [   56.423852] driver: comedi_auto_config 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424416] driver: comedi_auto_config 2
+Apr 24 17:46:08 ubuntupc kernel: [   56.424417] driver: comedi_auto_config 3
+Apr 24 17:46:08 ubuntupc kernel: [   56.424418] driver: comedi_auto_config 4
+Apr 24 17:46:08 ubuntupc kernel: [   56.424419] driver: comedi_auto_config 5
+Apr 24 17:46:08 ubuntupc kernel: [   56.424420] driver: comedi_auto_config 6
+Apr 24 17:46:08 ubuntupc kernel: [   56.424421] driver: comedi_auto_config 7
+Apr 24 17:46:08 ubuntupc kernel: [   56.424422] driver: comedi_auto_config 8
+Apr 24 17:46:08 ubuntupc kernel: [   56.424423] driver: comedi_auto_config 9
+Apr 24 17:46:08 ubuntupc kernel: [   56.424424] driver: comedi_auto_config 10
+Apr 24 17:46:08 ubuntupc kernel: [   56.424425] driver: comedi_auto_config 11
+Apr 24 17:46:08 ubuntupc kernel: [   56.424426] driver: comedi_auto_config 12
+Apr 24 17:46:08 ubuntupc kernel: [   56.424428] driver: comedi_device_attach
+Apr 24 17:46:08 ubuntupc kernel: [   56.424429] driver: comedi_device_attach 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424430] driver: comedi_device_attach 7
+Apr 24 17:46:08 ubuntupc kernel: [   56.424431] driver: comedi_auto_config 14
+Apr 24 17:46:08 ubuntupc kernel: [   56.424432] driver: comedi_auto_config 14
+Apr 24 17:46:08 ubuntupc kernel: [   56.424485] driver: comedi_auto_config end
+Apr 24 17:46:08 ubuntupc kernel: [   56.424486] ni_usb6008 auto config result = -5
+Apr 24 17:46:08 ubuntupc kernel: [   56.424488] usbdux 6-1:1.0: comedi_: usbdux0 has been successfully initialised.
+Apr 24 17:46:08 ubuntupc kernel: [   56.424493] ni_usb6008: usbduxsub_probe
+Apr 24 17:46:08 ubuntupc kernel: [   56.424494] ni_usb6008: interface length 9
+Apr 24 17:46:08 ubuntupc kernel: [   56.424495] ni_usb6008: interface desc type 4
+Apr 24 17:46:08 ubuntupc kernel: [   56.424496] ni_usb6008: interface inf number 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424497] ni_usb6008: interface alt settings 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424498] ni_usb6008: interface num nedpoints 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424499] ni_usb6008: interface if class 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424500] ni_usb6008: interface if sub class 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424501] ni_usb6008: interface if protocol 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424502] ni_usb6008: interface i interface 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424503] ni_usb6008: interface num altsettings 1d
+Apr 24 17:46:08 ubuntupc kernel: [   56.424505] ni_usb6008: interface minor 0d
+Apr 24 17:46:08 ubuntupc kernel: [   56.424509] driver: comedi_usb_auto_config
+Apr 24 17:46:08 ubuntupc kernel: [   56.424510] driver: comedi_auto_config
+Apr 24 17:46:08 ubuntupc kernel: [   56.424511] driver: comedi_auto_config 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424545] driver: comedi_auto_config 2
+Apr 24 17:46:08 ubuntupc kernel: [   56.424546] driver: comedi_auto_config 3
+Apr 24 17:46:08 ubuntupc kernel: [   56.424547] driver: comedi_auto_config 4
+Apr 24 17:46:08 ubuntupc kernel: [   56.424548] driver: comedi_auto_config 5
+Apr 24 17:46:08 ubuntupc kernel: [   56.424549] driver: comedi_auto_config 6
+Apr 24 17:46:08 ubuntupc kernel: [   56.424550] driver: comedi_auto_config 7
+Apr 24 17:46:08 ubuntupc kernel: [   56.424551] driver: comedi_auto_config 8
+Apr 24 17:46:08 ubuntupc kernel: [   56.424552] driver: comedi_auto_config 9
+Apr 24 17:46:08 ubuntupc kernel: [   56.424553] driver: comedi_auto_config 10
+Apr 24 17:46:08 ubuntupc kernel: [   56.424554] driver: comedi_auto_config 11
+Apr 24 17:46:08 ubuntupc kernel: [   56.424555] driver: comedi_auto_config 12
+Apr 24 17:46:08 ubuntupc kernel: [   56.424556] driver: comedi_device_attach
+Apr 24 17:46:08 ubuntupc kernel: [   56.424557] driver: comedi_device_attach 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424558] driver: comedi_device_attach 7
+Apr 24 17:46:08 ubuntupc kernel: [   56.424559] driver: comedi_auto_config 14
+Apr 24 17:46:08 ubuntupc kernel: [   56.424560] driver: comedi_auto_config 14
+Apr 24 17:46:08 ubuntupc kernel: [   56.424589] driver: comedi_auto_config end
+Apr 24 17:46:08 ubuntupc kernel: [   56.424590] ni_usb6008 auto config result = -5
+Apr 24 17:46:08 ubuntupc kernel: [   56.424591] usbdux 6-1:1.1: comedi_: usbdux1 has been successfully initialised.
+Apr 24 17:46:08 ubuntupc kernel: [   56.424596] ni_usb6008: usbduxsub_probe
+Apr 24 17:46:08 ubuntupc kernel: [   56.424597] ni_usb6008: interface length 9
+Apr 24 17:46:08 ubuntupc kernel: [   56.424598] ni_usb6008: interface desc type 4
+Apr 24 17:46:08 ubuntupc kernel: [   56.424599] ni_usb6008: interface inf number 2
+Apr 24 17:46:08 ubuntupc kernel: [   56.424600] ni_usb6008: interface alt settings 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424601] ni_usb6008: interface num nedpoints 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424602] ni_usb6008: interface if class 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424603] ni_usb6008: interface if sub class 2
+Apr 24 17:46:08 ubuntupc kernel: [   56.424604] ni_usb6008: interface if protocol 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424605] ni_usb6008: interface i interface 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424606] ni_usb6008: interface num altsettings 2d
+Apr 24 17:46:08 ubuntupc kernel: [   56.424607] ni_usb6008: interface minor 0d
+Apr 24 17:46:08 ubuntupc kernel: [   56.424610] driver: comedi_usb_auto_config
+Apr 24 17:46:08 ubuntupc kernel: [   56.424611] driver: comedi_auto_config
+Apr 24 17:46:08 ubuntupc kernel: [   56.424612] driver: comedi_auto_config 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424656] driver: comedi_auto_config 2
+Apr 24 17:46:08 ubuntupc kernel: [   56.424657] driver: comedi_auto_config 3
+Apr 24 17:46:08 ubuntupc kernel: [   56.424658] driver: comedi_auto_config 4
+Apr 24 17:46:08 ubuntupc kernel: [   56.424659] driver: comedi_auto_config 5
+Apr 24 17:46:08 ubuntupc kernel: [   56.424660] driver: comedi_auto_config 6
+Apr 24 17:46:08 ubuntupc kernel: [   56.424661] driver: comedi_auto_config 7
+Apr 24 17:46:08 ubuntupc kernel: [   56.424662] driver: comedi_auto_config 8
+Apr 24 17:46:08 ubuntupc kernel: [   56.424663] driver: comedi_auto_config 9
+Apr 24 17:46:08 ubuntupc kernel: [   56.424664] driver: comedi_auto_config 10
+Apr 24 17:46:08 ubuntupc kernel: [   56.424665] driver: comedi_auto_config 11
+Apr 24 17:46:08 ubuntupc kernel: [   56.424666] driver: comedi_auto_config 12
+Apr 24 17:46:08 ubuntupc kernel: [   56.424667] driver: comedi_device_attach
+Apr 24 17:46:08 ubuntupc kernel: [   56.424668] driver: comedi_device_attach 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424669] driver: comedi_device_attach 7
+Apr 24 17:46:08 ubuntupc kernel: [   56.424670] driver: comedi_auto_config 14
+Apr 24 17:46:08 ubuntupc kernel: [   56.424671] driver: comedi_auto_config 14
+Apr 24 17:46:08 ubuntupc kernel: [   56.424777] driver: comedi_auto_config end
+Apr 24 17:46:08 ubuntupc kernel: [   56.424779] ni_usb6008 auto config result = -5
+Apr 24 17:46:08 ubuntupc kernel: [   56.424780] usbdux 6-1:1.2: comedi_: usbdux2 has been successfully initialised.
+Apr 24 17:46:08 ubuntupc kernel: [   56.424784] ni_usb6008: usbduxsub_probe
+Apr 24 17:46:08 ubuntupc kernel: [   56.424785] ni_usb6008: interface length 9
+Apr 24 17:46:08 ubuntupc kernel: [   56.424786] ni_usb6008: interface desc type 4
+Apr 24 17:46:08 ubuntupc kernel: [   56.424787] ni_usb6008: interface inf number 3
+Apr 24 17:46:08 ubuntupc kernel: [   56.424788] ni_usb6008: interface alt settings 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424789] ni_usb6008: interface num nedpoints 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424790] ni_usb6008: interface if class 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424791] ni_usb6008: interface if sub class 2
+Apr 24 17:46:08 ubuntupc kernel: [   56.424792] ni_usb6008: interface if protocol 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424793] ni_usb6008: interface i interface 0
+Apr 24 17:46:08 ubuntupc kernel: [   56.424794] ni_usb6008: interface num altsettings 3d
+Apr 24 17:46:08 ubuntupc kernel: [   56.424795] ni_usb6008: interface minor 0d
+Apr 24 17:46:08 ubuntupc kernel: [   56.424800] driver: comedi_usb_auto_config
+Apr 24 17:46:08 ubuntupc kernel: [   56.424801] driver: comedi_auto_config
+Apr 24 17:46:08 ubuntupc kernel: [   56.424802] driver: comedi_auto_config 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424835] driver: comedi_auto_config 2
+Apr 24 17:46:08 ubuntupc kernel: [   56.424836] driver: comedi_auto_config 3
+Apr 24 17:46:08 ubuntupc kernel: [   56.424837] driver: comedi_auto_config 4
+Apr 24 17:46:08 ubuntupc kernel: [   56.424838] driver: comedi_auto_config 5
+Apr 24 17:46:08 ubuntupc kernel: [   56.424839] driver: comedi_auto_config 6
+Apr 24 17:46:08 ubuntupc kernel: [   56.424840] driver: comedi_auto_config 7
+Apr 24 17:46:08 ubuntupc kernel: [   56.424841] driver: comedi_auto_config 8
+Apr 24 17:46:08 ubuntupc kernel: [   56.424842] driver: comedi_auto_config 9
+Apr 24 17:46:08 ubuntupc kernel: [   56.424843] driver: comedi_auto_config 10
+Apr 24 17:46:08 ubuntupc kernel: [   56.424844] driver: comedi_auto_config 11
+Apr 24 17:46:08 ubuntupc kernel: [   56.424845] driver: comedi_auto_config 12
+Apr 24 17:46:08 ubuntupc kernel: [   56.424846] driver: comedi_device_attach
+Apr 24 17:46:08 ubuntupc kernel: [   56.424847] driver: comedi_device_attach 1
+Apr 24 17:46:08 ubuntupc kernel: [   56.424848] driver: comedi_device_attach 7
+Apr 24 17:46:08 ubuntupc kernel: [   56.424849] driver: comedi_auto_config 14
+Apr 24 17:46:08 ubuntupc kernel: [   56.424850] driver: comedi_auto_config 14
+Apr 24 17:46:08 ubuntupc kernel: [   56.424880] driver: comedi_auto_config end
+Apr 24 17:46:08 ubuntupc kernel: [   56.424881] ni_usb6008 auto config result = -5
+Apr 24 17:46:08 ubuntupc kernel: [   56.424882] usbdux 6-1:1.3: comedi_: usbdux3 has been successfully initialised.
+Apr 24 17:46:08 ubuntupc kernel: [   56.425547] usbcore: registered new interface driver usbdux
+Apr 24 17:46:08 ubuntupc kernel: [   56.437801] usbcore: registered new interface driver snd-usb-audio
+Apr 24 17:46:08 ubuntupc kernel: [   56.450579] Initializing USB Mass Storage driver...
+Apr 24 17:46:08 ubuntupc kernel: [   56.451239] usbcore: registered new interface driver usb-storage
+Apr 24 17:46:08 ubuntupc kernel: [   56.451242] USB Mass Storage support registered.
+Apr 24 17:47:24 ubuntupc kernel: [  132.840875] usb 6-1: USB disconnect, address 2
+Apr 24 17:47:24 ubuntupc kernel: [  132.840953] ni_usb6008: usbduxsub_disconnect
+Apr 24 17:47:24 ubuntupc kernel: [  132.840959] driver: comedi_usb_auto_unconfig
+Apr 24 17:47:24 ubuntupc kernel: [  132.840963] driver: comedi_auto_unconfig
+Apr 24 17:47:24 ubuntupc kernel: [  132.840966] driver: comedi_auto_unconfig 1
+Apr 24 17:47:24 ubuntupc kernel: [  132.841003] ------------[ cut here ]------------
+Apr 24 17:47:24 ubuntupc kernel: [  132.841009] kernel BUG at /home/prashant/comedi/comedi/drivers.c:886!
+Apr 24 17:47:24 ubuntupc kernel: [  132.841015] invalid opcode: 0000 [#1] SMP 
+Apr 24 17:47:24 ubuntupc kernel: [  132.841022] last sysfs file: /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+Apr 24 17:47:24 ubuntupc kernel: [  132.841027] CPU 0 
+Apr 24 17:47:24 ubuntupc kernel: [  132.841030] Modules linked in: usb_storage snd_usb_audio ni_usb6008 comedi snd_usbmidi_lib ip6table_filter ip6_tables binfmt_misc ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack ipt_REJECT xt_tcpudp iptable_filter ip_tables x_tables bridge stp kvm_amd kvm pppoe pppox parport_pc ppdev snd_hda_codec_realtek snd_hda_intel snd_hda_codec radeon snd_hwdep snd_pcm snd_seq_midi ttm snd_rawmidi drm_kms_helper snd_seq_midi_event snd_seq drm i2c_algo_bit snd_timer snd_seq_device snd lp soundcore k10temp i2c_piix4 snd_page_alloc edac_core shpchp edac_mce_amd parport usbhid hid ahci r8169 mii libahci pata_atiixp
+Apr 24 17:47:24 ubuntupc kernel: [  132.841126] 
+Apr 24 17:47:24 ubuntupc kernel: [  132.841134] Pid: 29, comm: khubd Not tainted 2.6.35-22-generic #33-Ubuntu GA-MA78LMT-S2/GA-MA78LMT-S2
+Apr 24 17:47:24 ubuntupc kernel: [  132.841141] RIP: 0010:[<ffffffffa03f7462>]  [<ffffffffa03f7462>] comedi_auto_unconfig+0xd2/0xe0 [comedi]
+Apr 24 17:47:24 ubuntupc kernel: [  132.841160] RSP: 0018:ffff880122929b20  EFLAGS: 00010216
+Apr 24 17:47:24 ubuntupc kernel: [  132.841166] RAX: 0000000000000034 RBX: ffff880003062bd0 RCX: 000000000003ffff
+Apr 24 17:47:24 ubuntupc kernel: [  132.841171] RDX: 0000000000000000 RSI: 0000000000000082 RDI: 0000000000000246
+Apr 24 17:47:24 ubuntupc kernel: [  132.841177] RBP: ffff880122929b30 R08: 000000000000fbfc R09: 0000000000000000
+Apr 24 17:47:24 ubuntupc kernel: [  132.841182] R10: 0000000000000000 R11: 0000000000000001 R12: ffff880109416888
+Apr 24 17:47:24 ubuntupc kernel: [  132.841188] R13: ffff880120338030 R14: ffff880109416800 R15: ffffffffa0410e68
+Apr 24 17:47:24 ubuntupc kernel: [  132.841195] FS:  00007fa261890780(0000) GS:ffff880001e00000(0000) knlGS:0000000000000000
+Apr 24 17:47:24 ubuntupc kernel: [  132.841201] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+Apr 24 17:47:24 ubuntupc kernel: [  132.841207] CR2: 00007f2d03882000 CR3: 00000001095d9000 CR4: 00000000000006f0
+Apr 24 17:47:24 ubuntupc kernel: [  132.841212] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+Apr 24 17:47:24 ubuntupc kernel: [  132.841218] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Apr 24 17:47:24 ubuntupc kernel: [  132.841225] Process khubd (pid: 29, threadinfo ffff880122928000, task ffff88012291adc0)
+Apr 24 17:47:24 ubuntupc kernel: [  132.841230] Stack:
+Apr 24 17:47:24 ubuntupc kernel: [  132.841233]  ffff880109416800 ffffffffa0411228 ffff880122929b50 ffffffffa03f74a7
+Apr 24 17:47:24 ubuntupc kernel: [  132.841242] <0> 0000000000000000 ffffffffa0411180 ffff880122929b80 ffffffffa040cdad
+Apr 24 17:47:24 ubuntupc kernel: [  132.841251] <0> ffff880120338000 ffff880120338030 ffff880109416800 ffffffffa0410e00
+Apr 24 17:47:24 ubuntupc kernel: [  132.841262] Call Trace:
+Apr 24 17:47:24 ubuntupc kernel: [  132.841276]  [<ffffffffa03f74a7>] comedi_usb_auto_unconfig+0x37/0x60 [comedi]
+Apr 24 17:47:24 ubuntupc kernel: [  132.841287]  [<ffffffffa040cdad>] usbduxsub_disconnect+0x6d/0x120 [ni_usb6008]
+Apr 24 17:47:24 ubuntupc kernel: [  132.841300]  [<ffffffff8140b7ca>] usb_unbind_interface+0x5a/0x1a0
+Apr 24 17:47:24 ubuntupc kernel: [  132.841310]  [<ffffffff81387cc5>] __device_release_driver+0x75/0xe0
+Apr 24 17:47:24 ubuntupc kernel: [  132.841317]  [<ffffffff81387e2d>] device_release_driver+0x2d/0x40
+Apr 24 17:47:24 ubuntupc kernel: [  132.841327]  [<ffffffff81386de2>] bus_remove_device+0xb2/0xf0
+Apr 24 17:47:24 ubuntupc kernel: [  132.841336]  [<ffffffff81384b27>] device_del+0x127/0x1d0
+Apr 24 17:47:24 ubuntupc kernel: [  132.841344]  [<ffffffff81407e58>] usb_disable_device+0xa8/0x130
+Apr 24 17:47:24 ubuntupc kernel: [  132.841352]  [<ffffffff8140147b>] usb_disconnect+0xdb/0x180
+Apr 24 17:47:24 ubuntupc kernel: [  132.841360]  [<ffffffff81401b33>] hub_port_connect_change+0x93/0xa40
+Apr 24 17:47:24 ubuntupc kernel: [  132.841368]  [<ffffffff81408bdf>] ? usb_control_msg+0xff/0x180
+Apr 24 17:47:24 ubuntupc kernel: [  132.841376]  [<ffffffff81403652>] hub_events+0x332/0x580
+Apr 24 17:47:24 ubuntupc kernel: [  132.841384]  [<ffffffff81586adf>] ? schedule+0x3df/0x830
+Apr 24 17:47:24 ubuntupc kernel: [  132.841392]  [<ffffffff814038f5>] hub_thread+0x55/0x190
+Apr 24 17:47:24 ubuntupc kernel: [  132.841400]  [<ffffffff8107f610>] ? autoremove_wake_function+0x0/0x40
+Apr 24 17:47:24 ubuntupc kernel: [  132.841408]  [<ffffffff814038a0>] ? hub_thread+0x0/0x190
+Apr 24 17:47:24 ubuntupc kernel: [  132.841415]  [<ffffffff8107f0b6>] kthread+0x96/0xa0
+Apr 24 17:47:24 ubuntupc kernel: [  132.841423]  [<ffffffff8100aee4>] kernel_thread_helper+0x4/0x10
+Apr 24 17:47:24 ubuntupc kernel: [  132.841431]  [<ffffffff8107f020>] ? kthread+0x0/0xa0
+Apr 24 17:47:24 ubuntupc kernel: [  132.841438]  [<ffffffff8100aee0>] ? kernel_thread_helper+0x0/0x10
+Apr 24 17:47:24 ubuntupc kernel: [  132.841442] Code: 3f a0 31 c0 e8 21 f0 18 e1 48 89 df e8 58 ad d4 e0 48 c7 c6 50 96 3f a0 48 c7 c7 06 98 3f a0 31 c0 e8 04 f0 18 e1 e9 69 ff ff ff <0f> 0b eb fe eb 08 90 90 90 90 90 90 90 90 55 48 89 e5 53 48 83 
+Apr 24 17:47:24 ubuntupc kernel: [  132.841509] RIP  [<ffffffffa03f7462>] comedi_auto_unconfig+0xd2/0xe0 [comedi]
+Apr 24 17:47:24 ubuntupc kernel: [  132.841522]  RSP <ffff880122929b20>
+Apr 24 17:47:24 ubuntupc kernel: [  132.841528] ---[ end trace 61a29e7ef8b95c19 ]---
+Apr 24 17:48:06 ubuntupc kernel: Kernel logging (proc) stopped.
