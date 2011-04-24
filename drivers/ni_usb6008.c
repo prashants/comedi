@@ -326,6 +326,8 @@ static int usbduxsub_unlink_InURBs(struct usbduxsub *usbduxsub_tmp)
 	int i = 0;
 	int err = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (usbduxsub_tmp && usbduxsub_tmp->urbIn) {
 		for (i = 0; i < usbduxsub_tmp->numOfInBuffers; i++) {
 			if (usbduxsub_tmp->urbIn[i]) {
@@ -350,6 +352,8 @@ static int usbdux_ai_stop(struct usbduxsub *this_usbduxsub, int do_unlink)
 {
 	int ret = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub) {
 		pr_err("comedi?: usbdux_ai_stop: this_usbduxsub=NULL!\n");
 		return -EFAULT;
@@ -376,6 +380,8 @@ static int usbdux_ai_cancel(struct comedi_device *dev,
 	struct usbduxsub *this_usbduxsub;
 	int res = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	/* force unlink of all urbs */
 	this_usbduxsub = dev->private;
 	if (!this_usbduxsub)
@@ -403,6 +409,8 @@ static void usbduxsub_ai_IsocIrq(struct urb *urb)
 	struct comedi_device *this_comedidev;
 	struct comedi_subdevice *s;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	/* the context variable points to the subdevice */
 	this_comedidev = urb->context;
 	/* the private structure of the subdevice is struct usbduxsub */
@@ -541,6 +549,8 @@ static int usbduxsub_unlink_OutURBs(struct usbduxsub *usbduxsub_tmp)
 	int i = 0;
 	int err = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (usbduxsub_tmp && usbduxsub_tmp->urbOut) {
 		for (i = 0; i < usbduxsub_tmp->numOfOutBuffers; i++) {
 			if (usbduxsub_tmp->urbOut[i])
@@ -561,6 +571,8 @@ static int usbdux_ao_stop(struct usbduxsub *this_usbduxsub, int do_unlink)
 {
 	int ret = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 	dev_dbg(&this_usbduxsub->interface->dev, "comedi: usbdux_ao_cancel\n");
@@ -580,6 +592,8 @@ static int usbdux_ao_cancel(struct comedi_device *dev,
 	struct usbduxsub *this_usbduxsub = dev->private;
 	int res = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -603,6 +617,8 @@ static void usbduxsub_ao_IsocIrq(struct urb *urb)
 	struct comedi_device *this_comedidev;
 	struct comedi_subdevice *s;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	/* the context variable points to the subdevice */
 	this_comedidev = urb->context;
 	/* the private structure of the subdevice is struct usbduxsub */
@@ -736,6 +752,9 @@ static int usbduxsub_start(struct usbduxsub *usbduxsub)
 
 	/* 7f92 to zero */
 	local_transfer_buffer[0] = 0;
+	
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	errcode = usb_control_msg(usbduxsub->usbdev,
 				  /* create a pipe for a control transfer */
 				  usb_sndctrlpipe(usbduxsub->usbdev, 0),
@@ -769,6 +788,9 @@ static int usbduxsub_stop(struct usbduxsub *usbduxsub)
 
 	/* 7f92 to one */
 	local_transfer_buffer[0] = 1;
+	
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	errcode = usb_control_msg(usbduxsub->usbdev,
 				  usb_sndctrlpipe(usbduxsub->usbdev, 0),
 				  /* bRequest, "Firmware" */
@@ -797,6 +819,8 @@ static int usbduxsub_upload(struct usbduxsub *usbduxsub,
 {
 	int errcode;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	errcode = usb_control_msg(usbduxsub->usbdev,
 				  usb_sndctrlpipe(usbduxsub->usbdev, 0),
 				  /* brequest, firmware */
@@ -878,6 +902,8 @@ static int usbduxsub_submit_InURBs(struct usbduxsub *usbduxsub)
 {
 	int i, errFlag;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!usbduxsub)
 		return -EFAULT;
 
@@ -910,6 +936,8 @@ static int usbduxsub_submit_OutURBs(struct usbduxsub *usbduxsub)
 {
 	int i, errFlag;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!usbduxsub)
 		return -EFAULT;
 
@@ -939,6 +967,8 @@ static int usbdux_ai_cmdtest(struct comedi_device *dev,
 	unsigned int tmpTimer;
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!(this_usbduxsub->probed))
 		return -ENODEV;
 
@@ -1101,6 +1131,8 @@ static int send_dux_commands(struct usbduxsub *this_usbduxsub, int cmd_type)
 {
 	int result, nsent;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	this_usbduxsub->dux_commands[0] = cmd_type;
 #ifdef NOISY_DUX_DEBUGBUG
 	printk(KERN_DEBUG "comedi%d: usbdux: dux_commands: ",
@@ -1128,6 +1160,8 @@ static int receive_dux_commands(struct usbduxsub *this_usbduxsub, int command)
 	int nrec;
 	int i;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	for (i = 0; i < RETRIES; i++) {
 		result = usb_bulk_msg(this_usbduxsub->usbdev,
 				      usb_rcvbulkpipe(this_usbduxsub->usbdev,
@@ -1157,6 +1191,9 @@ static int usbdux_ai_inttrig(struct comedi_device *dev,
 {
 	int ret;
 	struct usbduxsub *this_usbduxsub = dev->private;
+	
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1204,6 +1241,8 @@ static int usbdux_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 	struct usbduxsub *this_usbduxsub = dev->private;
 	int result;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1323,6 +1362,8 @@ static int usbdux_ai_insn_read(struct comedi_device *dev,
 	int err;
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return 0;
 
@@ -1383,6 +1424,8 @@ static int usbdux_ao_insn_read(struct comedi_device *dev,
 	int chan = CR_CHAN(insn->chanspec);
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1406,6 +1449,8 @@ static int usbdux_ao_insn_write(struct comedi_device *dev,
 	int chan = CR_CHAN(insn->chanspec);
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1455,6 +1500,8 @@ static int usbdux_ao_inttrig(struct comedi_device *dev,
 	int ret;
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1496,6 +1543,8 @@ static int usbdux_ao_cmdtest(struct comedi_device *dev,
 	int err = 0, tmp;
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1636,6 +1685,8 @@ static int usbdux_ao_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 	int i, ret;
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1743,6 +1794,8 @@ static int usbdux_dio_insn_config(struct comedi_device *dev,
 {
 	int chan = CR_CHAN(insn->chanspec);
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	/* The input or output configuration of each digital line is
 	 * configured by a special insn_config instruction.  chanspec
 	 * contains the channel to be changed, and data[0] contains the
@@ -1776,6 +1829,8 @@ static int usbdux_dio_insn_bits(struct comedi_device *dev,
 	struct usbduxsub *this_usbduxsub = dev->private;
 	int err;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1823,6 +1878,8 @@ static int usbdux_counter_read(struct comedi_device *dev,
 	int chan = insn->chanspec;
 	int err;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1857,6 +1914,8 @@ static int usbdux_counter_write(struct comedi_device *dev,
 	struct usbduxsub *this_usbduxsub = dev->private;
 	int err;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1896,6 +1955,8 @@ static int usbduxsub_unlink_PwmURBs(struct usbduxsub *usbduxsub_tmp)
 {
 	int err = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (usbduxsub_tmp && usbduxsub_tmp->urbPwm) {
 		if (usbduxsub_tmp->urbPwm)
 			usb_kill_urb(usbduxsub_tmp->urbPwm);
@@ -1912,6 +1973,8 @@ static int usbdux_pwm_stop(struct usbduxsub *this_usbduxsub, int do_unlink)
 {
 	int ret = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1931,6 +1994,8 @@ static int usbdux_pwm_cancel(struct comedi_device *dev,
 	struct usbduxsub *this_usbduxsub = dev->private;
 	int res = 0;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	/* unlink only if it is really running */
 	res = usbdux_pwm_stop(this_usbduxsub, this_usbduxsub->pwm_cmd_running);
 
@@ -1951,6 +2016,8 @@ static void usbduxsub_pwm_irq(struct urb *urb)
 	struct comedi_device *this_comedidev;
 	struct comedi_subdevice *s;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	/* printk(KERN_DEBUG "PWM: IRQ\n"); */
 
 	/* the context variable points to the subdevice */
@@ -2017,6 +2084,8 @@ static int usbduxsub_submit_PwmURBs(struct usbduxsub *usbduxsub)
 {
 	int errFlag;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!usbduxsub)
 		return -EFAULT;
 
@@ -2046,6 +2115,8 @@ static int usbdux_pwm_period(struct comedi_device *dev,
 	struct usbduxsub *this_usbduxsub = dev->private;
 	int fx2delay = 255;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (period < MIN_PWM_PERIOD) {
 		dev_err(&this_usbduxsub->interface->dev,
 			"comedi%d: illegal period setting for pwm.\n",
@@ -2074,6 +2145,8 @@ static int usbdux_pwm_start(struct comedi_device *dev,
 	int ret, i;
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	dev_dbg(&this_usbduxsub->interface->dev, "comedi%d: %s\n",
 		dev->minor, __func__);
 
@@ -2112,6 +2185,8 @@ static int usbdux_pwm_pattern(struct comedi_device *dev,
 	char sgn_mask;
 	char c;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -2149,6 +2224,8 @@ static int usbdux_pwm_write(struct comedi_device *dev,
 {
 	struct usbduxsub *this_usbduxsub = dev->private;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -2182,6 +2259,9 @@ static int usbdux_pwm_config(struct comedi_device *dev,
 			     struct comedi_insn *insn, unsigned int *data)
 {
 	struct usbduxsub *this_usbduxsub = dev->private;
+	
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 	switch (data[0]) {
 	case INSN_CONFIG_ARM:
 		/* switch it on */
@@ -2316,6 +2396,9 @@ static void usbdux_firmware_request_complete_handler(const struct firmware *fw,
 	struct usbduxsub *usbduxsub_tmp = context;
 	struct usb_device *usbdev = usbduxsub_tmp->usbdev;
 	int ret;
+	
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+	
 /*
 	if (fw == NULL) {
 		dev_err(&usbdev->dev,
