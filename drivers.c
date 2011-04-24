@@ -184,7 +184,7 @@ attached:
 	printk(KERN_INFO "driver: %s 10\n", __func__);
 	smp_wmb();
 	dev->attached = 1;
-	printk(KERN_INFO "driver: %s 11\n", __func__);
+	printk(KERN_INFO "driver: %s end\n", __func__);
 	return 0;
 }
 
@@ -845,28 +845,28 @@ static int comedi_auto_config(struct device *hardware_device,
 		retval = -ENOMEM;
 		goto cleanup;
 	}
-	printk(KERN_INFO "driver: %s 3\n", __func__);
-	*private_data = minor;
 	printk(KERN_INFO "driver: %s 4\n", __func__);
-	dev_set_drvdata(hardware_device, private_data);
+	*private_data = minor;
 	printk(KERN_INFO "driver: %s 5\n", __func__);
-	dev_file_info = comedi_get_device_file_info(minor);
+	dev_set_drvdata(hardware_device, private_data);
 	printk(KERN_INFO "driver: %s 6\n", __func__);
-	memset(&it, 0, sizeof(it));
+	dev_file_info = comedi_get_device_file_info(minor);
 	printk(KERN_INFO "driver: %s 7\n", __func__);
-	strncpy(it.board_name, board_name, COMEDI_NAMELEN);
+	memset(&it, 0, sizeof(it));
 	printk(KERN_INFO "driver: %s 8\n", __func__);
-	it.board_name[COMEDI_NAMELEN - 1] = '\0';
+	strncpy(it.board_name, board_name, COMEDI_NAMELEN);
 	printk(KERN_INFO "driver: %s 9\n", __func__);
+	it.board_name[COMEDI_NAMELEN - 1] = '\0';
+	printk(KERN_INFO "driver: %s 10\n", __func__);
 	BUG_ON(num_options > COMEDI_NDEVCONFOPTS);
 	memcpy(it.options, options, num_options * sizeof(int));
-	printk(KERN_INFO "driver: %s 10\n", __func__);
-	mutex_lock(&dev_file_info->device->mutex);
 	printk(KERN_INFO "driver: %s 11\n", __func__);
-	retval = comedi_device_attach(dev_file_info->device, &it);
+	mutex_lock(&dev_file_info->device->mutex);
 	printk(KERN_INFO "driver: %s 12\n", __func__);
+	retval = comedi_device_attach(dev_file_info->device, &it);
+	printk(KERN_INFO "driver: %s 14\n", __func__);
 	mutex_unlock(&dev_file_info->device->mutex);
-	printk(KERN_INFO "driver: %s 13\n", __func__);
+	printk(KERN_INFO "driver: %s 14\n", __func__);
 cleanup:
 	if (retval < 0) {
 		kfree(private_data);
