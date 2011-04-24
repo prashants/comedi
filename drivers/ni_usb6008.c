@@ -826,7 +826,8 @@ static int usbduxsub_upload(struct usbduxsub *usbduxsub,
 static int firmwareUpload(struct usbduxsub *usbduxsub,
 			  const u8 *firmwareBinary, int sizeFirmware)
 {
-/*	int ret;
+	/*
+	int ret;
 	uint8_t *fwBuf;
 
 	if (!firmwareBinary)
@@ -837,9 +838,8 @@ static int firmwareUpload(struct usbduxsub *usbduxsub,
 			"usbdux firmware binary it too large for FX2.\n");
 		return -ENOMEM;
 	}
-*/
-	/* we generate a local buffer for the firmware */
-	/*
+
+
 	fwBuf = kmemdup(firmwareBinary, sizeFirmware, GFP_KERNEL);
 	if (!fwBuf) {
 		dev_err(&usbduxsub->interface->dev,
@@ -869,7 +869,8 @@ static int firmwareUpload(struct usbduxsub *usbduxsub,
 		kfree(fwBuf);
 		return ret;
 	}
-	kfree(fwBuf); */
+	kfree(fwBuf);
+	*/
 	return 0;
 }
 
@@ -2235,6 +2236,8 @@ static void tidy_up(struct usbduxsub *usbduxsub_tmp)
 {
 	int i;
 
+	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+
 	if (!usbduxsub_tmp)
 		return;
 	dev_dbg(&usbduxsub_tmp->interface->dev, "comedi_: tiding up\n");
@@ -2313,17 +2316,13 @@ static void usbdux_firmware_request_complete_handler(const struct firmware *fw,
 	struct usbduxsub *usbduxsub_tmp = context;
 	struct usb_device *usbdev = usbduxsub_tmp->usbdev;
 	int ret;
-
+/*
 	if (fw == NULL) {
 		dev_err(&usbdev->dev,
 			"Firmware complete handler without firmware!\n");
 		return;
 	}
 
-	/*
-	 * we need to upload the firmware here because fw will be
-	 * freed once we've left this function
-	 */
 	ret = firmwareUpload(usbduxsub_tmp, fw->data, fw->size);
 
 	if (ret) {
@@ -2334,6 +2333,7 @@ static void usbdux_firmware_request_complete_handler(const struct firmware *fw,
 	comedi_usb_auto_config(usbdev, BOARDNAME);
  out:
 	release_firmware(fw);
+	*/
 }
 
 /* allocate memory for the urbs and initialise them */
@@ -2347,7 +2347,7 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 	int ret;
 
 	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
-	
+
 	dev_dbg(dev, "comedi_: usbdux_: "
 		"finding a free structure for the usb-device\n");
 
@@ -2376,7 +2376,8 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 
 	/* 2.6: save the interface itself */
 	usbduxsub[index].interface = uinterf;
-	
+
+
 	/******* print inerface information *******/
 	printk(KERN_INFO "ni_usb6008: interface length %d", uinterf->cur_altsetting->desc.bLength);
 	printk(KERN_INFO "ni_usb6008: interface desc type %d", uinterf->cur_altsetting->desc.bDescriptorType);
@@ -2387,10 +2388,10 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 	printk(KERN_INFO "ni_usb6008: interface if sub class %d", uinterf->cur_altsetting->desc.bInterfaceSubClass);
 	printk(KERN_INFO "ni_usb6008: interface if protocol %d", uinterf->cur_altsetting->desc.bInterfaceProtocol);
 	printk(KERN_INFO "ni_usb6008: interface i interface %d", uinterf->cur_altsetting->desc.iInterface);
-
+	
 	printk(KERN_INFO "ni_usb6008: interface num altsettings %ud", uinterf->num_altsetting);
 	printk(KERN_INFO "ni_usb6008: interface minor %ud", uinterf->minor);
-	
+
 	/* get the interface number from the interface */
 	usbduxsub[index].ifnum = uinterf->altsetting->desc.bInterfaceNumber;
 	/* hand the private data over to the usb subsystem */
@@ -2448,9 +2449,11 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
+
 	/* setting to alternate setting 3: enabling iso ep and bulk ep. */
-	/* i = usb_set_interface(usbduxsub[index].usbdev,
-			      usbduxsub[index].ifnum, 3);
+	//i = usb_set_interface(usbduxsub[index].usbdev,
+	//		      usbduxsub[index].ifnum, 3);
+
 	if (i < 0) {
 		dev_err(dev, "comedi_: usbdux%d: "
 			"could not set alternate setting 3 in high speed.\n",
@@ -2458,7 +2461,7 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 		tidy_up(&(usbduxsub[index]));
 		up(&start_stop_sem);
 		return -ENODEV;
-	} */
+	}
 	if (usbduxsub[index].high_speed)
 		usbduxsub[index].numOfInBuffers = NUMOFINBUFFERSHIGH;
 	else
@@ -2597,7 +2600,8 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 	usbduxsub[index].probed = 1;
 	up(&start_stop_sem);
 
-	/* ret = request_firmware_nowait(THIS_MODULE,
+	/*
+	ret = request_firmware_nowait(THIS_MODULE,
 				      FW_ACTION_HOTPLUG,
 				      "usbdux_firmware.bin",
 				      &udev->dev,
@@ -2608,7 +2612,8 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 	if (ret) {
 		dev_err(dev, "Could not load firmware (err=%d)\n", ret);
 		return ret;
-	} */
+	}
+	*/
 
 	ret = comedi_usb_auto_config(udev, BOARDNAME);
 	printk(KERN_INFO "ni_usb6008 auto config result = %d", ret);
@@ -2625,7 +2630,7 @@ static void usbduxsub_disconnect(struct usb_interface *intf)
 	struct usb_device *udev = interface_to_usbdev(intf);
 
 	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
-		
+
 	if (!usbduxsub_tmp) {
 		dev_err(&intf->dev,
 			"comedi_: disconnect called with null pointer.\n");
@@ -2653,10 +2658,11 @@ static int usbdux_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	struct usbduxsub *udev;
 
 	struct comedi_subdevice *s = NULL;
-	dev->private = NULL;
-	
+
 	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
-	
+
+	dev->private = NULL;
+
 	down(&start_stop_sem);
 	/* find a valid device which has been detected by the probe function of
 	 * the usb */
@@ -2680,14 +2686,6 @@ static int usbdux_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	/* pointer back to the corresponding comedi device */
 	udev->comedidev = dev;
 
-	/* trying to upload the firmware into the chip */
-	/*
-	if (comedi_aux_data(it->options, 0) &&
-	    it->options[COMEDI_DEVCONF_AUX_DATA_LENGTH]) {
-		firmwareUpload(udev, comedi_aux_data(it->options, 0),
-			       it->options[COMEDI_DEVCONF_AUX_DATA_LENGTH]);
-	}
-	*/
 	dev->board_name = BOARDNAME;
 
 	/* set number of subdevices */
@@ -2859,8 +2857,9 @@ static struct comedi_driver driver_usbdux = {
 
 /* Table with the USB-devices: just now only testing IDs */
 static const struct usb_device_id usbduxsub_table[] = {
-	{USB_DEVICE(0x06E6, 0xC200)}, /* MAGICJACK */
-	{}			/* Terminating entry */
+	{USB_DEVICE(0x06E6, 0xC200)}, 		/* MAGICJACK */
+	{USB_DEVICE(0x0951, 0x1607)}, 		/* KINGSTONE USB */
+	{}					/* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(usb, usbduxsub_table);
@@ -2879,6 +2878,7 @@ static struct usb_driver usbduxsub_driver = {
 static int __init init_usbdux(void)
 {
 	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+
 	printk(KERN_INFO KBUILD_MODNAME ": "
 	       DRIVER_VERSION ":" DRIVER_DESC "\n");
 	usb_register(&usbduxsub_driver);
@@ -2890,6 +2890,7 @@ static int __init init_usbdux(void)
 static void __exit exit_usbdux(void)
 {
 	printk(KERN_INFO "ni_usb6008: %s\n", __func__);
+
 	comedi_driver_unregister(&driver_usbdux);
 	usb_deregister(&usbduxsub_driver);
 }
