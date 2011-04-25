@@ -918,8 +918,8 @@ int comedi_usb_auto_config(struct usb_device *usbdev, const char *board_name)
 {
 	printk(KERN_INFO "driver: %s\n", __func__);
 	BUG_ON(usbdev == NULL);
-	return comedi_auto_config(&usbdev->dev, board_name, NULL, 0);
 	printk(KERN_INFO "driver: %s end \n", __func__);
+	return comedi_auto_config(&usbdev->dev, board_name, NULL, 0);
 }
 EXPORT_SYMBOL_GPL(comedi_usb_auto_config);
 
