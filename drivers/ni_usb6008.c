@@ -2940,7 +2940,7 @@ static struct comedi_driver driver_usbdux = {
 
 /* Table with the USB-devices: just now only testing IDs */
 static const struct usb_device_id usbduxsub_table[] = {
-	{USB_DEVICE(0x06E6, 0xC200)}, 		/* MAGICJACK */
+	{USB_DEVICE(0x3923, 0x717A)}, 		/* MAGICJACK */
 	{USB_DEVICE(0x0951, 0x1607)}, 		/* KINGSTONE USB */
 	{}					/* Terminating entry */
 };

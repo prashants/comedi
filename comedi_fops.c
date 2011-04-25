@@ -2120,23 +2120,30 @@ int comedi_alloc_board_minor(struct device *hardware_device)
 	unsigned i;
 	int retval;
 
+	printk(KERN_INFO "comedi_alloc_board_minor: 1\n");
 	info = kzalloc(sizeof(struct comedi_device_file_info), GFP_KERNEL);
 	if (info == NULL)
 		return -ENOMEM;
+	printk(KERN_INFO "comedi_alloc_board_minor: 2\n");
 	info->device = kzalloc(sizeof(struct comedi_device), GFP_KERNEL);
 	if (info->device == NULL) {
 		kfree(info);
 		return -ENOMEM;
 	}
+	printk(KERN_INFO "comedi_alloc_board_minor: 3\n");
 	comedi_device_init(info->device);
+	printk(KERN_INFO "comedi_alloc_board_minor: 4\n");
 	spin_lock_irqsave(&comedi_file_info_table_lock, flags);
+	printk(KERN_INFO "comedi_alloc_board_minor: 5\n");
 	for (i = 0; i < COMEDI_NUM_BOARD_MINORS; ++i) {
 		if (comedi_file_info_table[i] == NULL) {
 			comedi_file_info_table[i] = info;
 			break;
 		}
 	}
+	printk(KERN_INFO "comedi_alloc_board_minor: 6\n");
 	spin_unlock_irqrestore(&comedi_file_info_table_lock, flags);
+	printk(KERN_INFO "comedi_alloc_board_minor: 7\n");
 	if (i == COMEDI_NUM_BOARD_MINORS) {
 		comedi_device_cleanup(info->device);
 		kfree(info->device);
@@ -2146,14 +2153,19 @@ int comedi_alloc_board_minor(struct device *hardware_device)
 		       "ran out of minor numbers for board device files.\n");
 		return -EBUSY;
 	}
+	printk(KERN_INFO "comedi_alloc_board_minor: 8\n");
 	info->device->minor = i;
 	csdev = COMEDI_DEVICE_CREATE(comedi_class, NULL,
 				     MKDEV(COMEDI_MAJOR, i), NULL,
 				     hardware_device, "comedi%i", i);
+	printk(KERN_INFO "comedi_alloc_board_minor: 9\n");
 	if (!IS_ERR(csdev))
 		info->device->class_dev = csdev;
+	printk(KERN_INFO "comedi_alloc_board_minor: 10\n");
 	dev_set_drvdata(csdev, info);
+	printk(KERN_INFO "comedi_alloc_board_minor: 11\n");
 	retval = device_create_file(csdev, &dev_attr_max_read_buffer_kb);
+	printk(KERN_INFO "comedi_alloc_board_minor: 12\n");
 	if (retval) {
 		printk(KERN_ERR
 		       "comedi: "
@@ -2162,7 +2174,9 @@ int comedi_alloc_board_minor(struct device *hardware_device)
 		comedi_free_board_minor(i);
 		return retval;
 	}
+	printk(KERN_INFO "comedi_alloc_board_minor: 13\n");
 	retval = device_create_file(csdev, &dev_attr_read_buffer_kb);
+	printk(KERN_INFO "comedi_alloc_board_minor: 14\n");
 	if (retval) {
 		printk(KERN_ERR
 		       "comedi: "
@@ -2171,7 +2185,9 @@ int comedi_alloc_board_minor(struct device *hardware_device)
 		comedi_free_board_minor(i);
 		return retval;
 	}
+	printk(KERN_INFO "comedi_alloc_board_minor: 15\n");
 	retval = device_create_file(csdev, &dev_attr_max_write_buffer_kb);
+	printk(KERN_INFO "comedi_alloc_board_minor: 16\n");
 	if (retval) {
 		printk(KERN_ERR
 		       "comedi: "
@@ -2180,7 +2196,9 @@ int comedi_alloc_board_minor(struct device *hardware_device)
 		comedi_free_board_minor(i);
 		return retval;
 	}
+	printk(KERN_INFO "comedi_alloc_board_minor: 17\n");
 	retval = device_create_file(csdev, &dev_attr_write_buffer_kb);
+	printk(KERN_INFO "comedi_alloc_board_minor: 18\n");
 	if (retval) {
 		printk(KERN_ERR
 		       "comedi: "
@@ -2189,6 +2207,7 @@ int comedi_alloc_board_minor(struct device *hardware_device)
 		comedi_free_board_minor(i);
 		return retval;
 	}
+	printk(KERN_INFO "comedi_alloc_board_minor: end\n");
 	return i;
 }
 
