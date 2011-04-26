@@ -257,7 +257,7 @@ struct usbduxsub {
 
 	int8_t *transfer_buffer;
 	/* input buffer for the ISO-transfer */
-	int16_t *inBuffer;
+	char *inBuffer;
 	int16_t *outBuffer;
 	int16_t *insnBuffer;
 
@@ -881,6 +881,8 @@ static void test_callback(struct urb *purb)
 static int usbduxsub_submit_InURBs(struct usbduxsub *usbduxsub)
 {
 	int i, errFlag;
+	int ret;
+	int count = 0;
 
 	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
 
@@ -888,7 +890,7 @@ static int usbduxsub_submit_InURBs(struct usbduxsub *usbduxsub)
 		return -EFAULT;
 
 	/* in case of a resubmission after an unlink... */
-	usbduxsub->urbIn->interval = usbduxsub->ai_interval;
+/*	usbduxsub->urbIn->interval = usbduxsub->ai_interval;
 	usbduxsub->urbIn->context = usbduxsub->comedidev;
 	usbduxsub->urbIn->dev = usbduxsub->usbdev;
 	usbduxsub->urbIn->status = 0;
@@ -898,14 +900,14 @@ static int usbduxsub_submit_InURBs(struct usbduxsub *usbduxsub)
 		(usbduxsub->urbIn->context),
 		(usbduxsub->urbIn->dev),
 		(usbduxsub->urbIn->interval));
-
-	usb_fill_bulk_urb(usbduxsub->urbIn,
+*/
+	/* usb_fill_bulk_urb(usbduxsub->urbIn,
                   usbduxsub->usbdev,
                   usb_sndbulkpipe(usbduxsub->usbdev, 0x81),
-                  usbduxsub->urbIn->transfer_buffer,
-                  1,
+                  usbduxsub->inBuffer,
+                  SIZEINBUF,
                   test_callback,
-                  usbduxsub->urbIn->context);
+                  usbduxsub->urbIn->context); */
 
 	printk("URBIN : pipe %d\n", usbduxsub->urbIn->pipe);
 	printk("URBIN : status %d\n", usbduxsub->urbIn->status);
@@ -915,14 +917,30 @@ static int usbduxsub_submit_InURBs(struct usbduxsub *usbduxsub)
 	printk("URBIN : number_of_packets %d\n", usbduxsub->urbIn->number_of_packets);
 	printk("URBIN : interval %d\n", usbduxsub->urbIn->interval);
 	printk("URBIN : error_count %d\n", usbduxsub->urbIn->error_count);
-	
+	/*
 	errFlag = usb_submit_urb(usbduxsub->urbIn, GFP_ATOMIC);
 	if (errFlag) {
 		dev_err(&usbduxsub->interface->dev,
 			"comedi_: ai: usb_submit_urb(%d) error %d\n",
 			i, errFlag);
 		return errFlag;
-	}
+	} */
+	
+		/* do an immediate bulk read to get data from the device */
+		ret = usb_bulk_msg(usbduxsub->usbdev,
+				       usb_rcvbulkpipe(usbduxsub->usbdev,
+				       0x81),
+				       usbduxsub->inBuffer,
+				       SIZEINBUF,
+				       &count, HZ*10);
+		/* if the read was successful, copy the data to user space */
+		if (!ret) {
+			printk(KERN_INFO "error received data");
+		} else {
+			printk("*** count %d", count);
+			printk("*** buffer %s", usbduxsub->inBuffer);
+		}
+		  
 	return 0;
 }
 
