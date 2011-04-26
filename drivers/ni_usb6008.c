@@ -241,64 +241,58 @@ static const struct comedi_lrange range_usbdux_ao_range = { 2, {
  * this driver one sub device just now: A/D
  */
 struct usbduxsub {
-	/* attached? */
 	int attached;
-	/* is it associated with a subdevice? */
 	int probed;
+
 	/* pointer to the usb-device */
 	struct usb_device *usbdev;
-	/* actual number of in-buffers */
-	int numOfInBuffers;
-	/* actual number of out-buffers */
-	int numOfOutBuffers;
-	/* ISO-transfer handling: buffers */
-	struct urb **urbIn;
-	struct urb **urbOut;
-	/* pwm-transfer handling */
+	struct usb_interface *interface;
+	struct comedi_device *comedidev;
+	int ifnum;
+	short int high_speed;
+
+	struct urb *urbIn;
+	struct urb *urbOut;
 	struct urb *urbPwm;
-	/* PWM period */
-	unsigned int pwmPeriod;
-	/* PWM internal delay for the GPIF in the FX2 */
-	int8_t pwmDelay;
-	/* size of the PWM buffer which holds the bit pattern */
-	int sizePwmBuf;
+
+	int8_t *transfer_buffer;
 	/* input buffer for the ISO-transfer */
 	int16_t *inBuffer;
-	/* input buffer for single insn */
-	int16_t *insnBuffer;
-	/* output buffer for single DA outputs */
 	int16_t *outBuffer;
-	/* interface number */
-	int ifnum;
-	/* interface structure in 2.6 */
-	struct usb_interface *interface;
-	/* comedi device for the interrupt context */
-	struct comedi_device *comedidev;
-	/* is it USB_SPEED_HIGH or not? */
-	short int high_speed;
+	int16_t *insnBuffer;
+
+	/* PWM period */
+	unsigned int pwmPeriod;
+	int8_t pwmDelay;
+	int sizePwmBuf;
+
 	/* asynchronous command is running */
 	short int ai_cmd_running;
 	short int ao_cmd_running;
-	/* pwm is running */
 	short int pwm_cmd_running;
+
 	/* continous aquisition */
 	short int ai_continous;
 	short int ao_continous;
+
 	/* number of samples to acquire */
 	int ai_sample_count;
 	int ao_sample_count;
+
 	/* time between samples in units of the timer */
 	unsigned int ai_timer;
 	unsigned int ao_timer;
+
 	/* counter between aquisitions */
 	unsigned int ai_counter;
 	unsigned int ao_counter;
+
 	/* interval in frames/uframes */
 	unsigned int ai_interval;
-	/* D/A commands */
+
 	int8_t *dac_commands;
-	/* commands */
 	int8_t *dux_commands;
+
 	struct semaphore sem;
 };
 
@@ -319,21 +313,13 @@ static DECLARE_MUTEX(start_stop_sem);
  */
 static int usbduxsub_unlink_InURBs(struct usbduxsub *usbduxsub_tmp)
 {
-	int i = 0;
 	int err = 0;
 
 	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
 
 	if (usbduxsub_tmp && usbduxsub_tmp->urbIn) {
-		for (i = 0; i < usbduxsub_tmp->numOfInBuffers; i++) {
-			if (usbduxsub_tmp->urbIn[i]) {
-				/* We wait here until all transfers have been
-				 * cancelled. */
-				usb_kill_urb(usbduxsub_tmp->urbIn[i]);
-			}
-			dev_dbg(&usbduxsub_tmp->interface->dev,
-				"comedi: usbdux: unlinked InURB %d, err=%d\n",
-				i, err);
+		if (usbduxsub_tmp->urbIn) {
+			usb_kill_urb(usbduxsub_tmp->urbIn);
 		}
 	}
 	return err;
@@ -542,19 +528,13 @@ static void usbduxsub_ai_IsocIrq(struct urb *urb)
 
 static int usbduxsub_unlink_OutURBs(struct usbduxsub *usbduxsub_tmp)
 {
-	int i = 0;
 	int err = 0;
 
 	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
 
 	if (usbduxsub_tmp && usbduxsub_tmp->urbOut) {
-		for (i = 0; i < usbduxsub_tmp->numOfOutBuffers; i++) {
-			if (usbduxsub_tmp->urbOut[i])
-				usb_kill_urb(usbduxsub_tmp->urbOut[i]);
-
-			dev_dbg(&usbduxsub_tmp->interface->dev,
-				"comedi: usbdux: unlinked OutURB %d: res=%d\n",
-				i, err);
+		if (usbduxsub_tmp->urbOut) {
+			usb_kill_urb(usbduxsub_tmp->urbOut);
 		}
 	}
 	return err;
@@ -893,6 +873,11 @@ static int firmwareUpload(struct usbduxsub *usbduxsub,
 	return 0;
 }
 
+static void test_callback(struct urb *purb)
+{
+	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
+}
+
 static int usbduxsub_submit_InURBs(struct usbduxsub *usbduxsub)
 {
 	int i, errFlag;
@@ -902,27 +887,41 @@ static int usbduxsub_submit_InURBs(struct usbduxsub *usbduxsub)
 	if (!usbduxsub)
 		return -EFAULT;
 
-	/* Submit all URBs and start the transfer on the bus */
-	for (i = 0; i < usbduxsub->numOfInBuffers; i++) {
-		/* in case of a resubmission after an unlink... */
-		usbduxsub->urbIn[i]->interval = usbduxsub->ai_interval;
-		usbduxsub->urbIn[i]->context = usbduxsub->comedidev;
-		usbduxsub->urbIn[i]->dev = usbduxsub->usbdev;
-		usbduxsub->urbIn[i]->status = 0;
-		usbduxsub->urbIn[i]->transfer_flags = URB_ISO_ASAP;
-		dev_dbg(&usbduxsub->interface->dev,
-			"comedi%d: submitting in-urb[%d]: %p,%p intv=%d\n",
-			usbduxsub->comedidev->minor, i,
-			(usbduxsub->urbIn[i]->context),
-			(usbduxsub->urbIn[i]->dev),
-			(usbduxsub->urbIn[i]->interval));
-		errFlag = usb_submit_urb(usbduxsub->urbIn[i], GFP_ATOMIC);
-		if (errFlag) {
-			dev_err(&usbduxsub->interface->dev,
-				"comedi_: ai: usb_submit_urb(%d) error %d\n",
-				i, errFlag);
-			return errFlag;
-		}
+	/* in case of a resubmission after an unlink... */
+	usbduxsub->urbIn->interval = usbduxsub->ai_interval;
+	usbduxsub->urbIn->context = usbduxsub->comedidev;
+	usbduxsub->urbIn->dev = usbduxsub->usbdev;
+	usbduxsub->urbIn->status = 0;
+	usbduxsub->urbIn->transfer_flags = URB_ISO_ASAP;
+	printk("comedi%d: submitting in-urb[%d]: %p,%p intv=%d\n",
+		usbduxsub->comedidev->minor, i,
+		(usbduxsub->urbIn->context),
+		(usbduxsub->urbIn->dev),
+		(usbduxsub->urbIn->interval));
+
+	usb_fill_bulk_urb(usbduxsub->urbIn,
+                  usbduxsub->usbdev,
+                  usb_sndbulkpipe(usbduxsub->usbdev, 0x81),
+                  usbduxsub->urbIn->transfer_buffer,
+                  1,
+                  test_callback,
+                  usbduxsub->urbIn->context);
+
+	printk("URBIN : pipe %d\n", usbduxsub->urbIn->pipe);
+	printk("URBIN : status %d\n", usbduxsub->urbIn->status);
+	printk("URBIN : transfer_flags %d\n", usbduxsub->urbIn->transfer_flags);
+	printk("URBIN : actual_length %d\n", usbduxsub->urbIn->actual_length);
+	printk("URBIN : start_frame %d\n", usbduxsub->urbIn->start_frame);
+	printk("URBIN : number_of_packets %d\n", usbduxsub->urbIn->number_of_packets);
+	printk("URBIN : interval %d\n", usbduxsub->urbIn->interval);
+	printk("URBIN : error_count %d\n", usbduxsub->urbIn->error_count);
+	
+	errFlag = usb_submit_urb(usbduxsub->urbIn, GFP_ATOMIC);
+	if (errFlag) {
+		dev_err(&usbduxsub->interface->dev,
+			"comedi_: ai: usb_submit_urb(%d) error %d\n",
+			i, errFlag);
+		return errFlag;
 	}
 	return 0;
 }
@@ -936,21 +935,20 @@ static int usbduxsub_submit_OutURBs(struct usbduxsub *usbduxsub)
 	if (!usbduxsub)
 		return -EFAULT;
 
-	for (i = 0; i < usbduxsub->numOfOutBuffers; i++) {
-		dev_dbg(&usbduxsub->interface->dev,
-			"comedi_: submitting out-urb[%d]\n", i);
-		/* in case of a resubmission after an unlink... */
-		usbduxsub->urbOut[i]->context = usbduxsub->comedidev;
-		usbduxsub->urbOut[i]->dev = usbduxsub->usbdev;
-		usbduxsub->urbOut[i]->status = 0;
-		usbduxsub->urbOut[i]->transfer_flags = URB_ISO_ASAP;
-		errFlag = usb_submit_urb(usbduxsub->urbOut[i], GFP_ATOMIC);
-		if (errFlag) {
-			dev_err(&usbduxsub->interface->dev,
-				"comedi_: ao: usb_submit_urb(%d) error %d\n",
-				i, errFlag);
-			return errFlag;
-		}
+	dev_dbg(&usbduxsub->interface->dev,
+		"comedi_: submitting out-urb[%d]\n", i);
+
+	/* in case of a resubmission after an unlink... */
+	usbduxsub->urbOut->context = usbduxsub->comedidev;
+	usbduxsub->urbOut->dev = usbduxsub->usbdev;
+	usbduxsub->urbOut->status = 0;
+	usbduxsub->urbOut->transfer_flags = URB_ISO_ASAP;
+	errFlag = usb_submit_urb(usbduxsub->urbOut, GFP_ATOMIC);
+	if (errFlag) {
+		dev_err(&usbduxsub->interface->dev,
+			"comedi_: ao: usb_submit_urb(%d) error %d\n",
+			i, errFlag);
+		return errFlag;
 	}
 	return 0;
 }
@@ -977,8 +975,6 @@ static int usbdux_ai_cmdtest(struct comedi_device *dev,
 	
 	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
 
-	return 0;
-	
 	if (!(this_usbduxsub->probed))
 		return -ENODEV;
 
@@ -1144,7 +1140,7 @@ static int usbdux_ai_cmdtest(struct comedi_device *dev,
 		}
 	}
 
-	printk(KERN_INFO "comedi_: ni_usb6008: 13\n");
+	printk(KERN_INFO "comedi_: ni_usb6008: 13 err = %d\n", err);
 
 	if (err)
 		return 3;
@@ -1341,8 +1337,7 @@ static int usbdux_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 		    create_adc_command(chan, range);
 	}
 
-	dev_dbg(&this_usbduxsub->interface->dev,
-		"comedi %d: sending commands to the usb device: size=%u\n",
+	printk("comedi %d: sending commands to the usb device: size=%u\n",
 		dev->minor, NUMCHANNELS);
 
 	result = send_dux_commands(this_usbduxsub, SENDADCOMMANDS);
@@ -1351,28 +1346,10 @@ static int usbdux_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 		return result;
 	}
 
-	if (this_usbduxsub->high_speed) {
-		/*
-		 * every channel gets a time window of 125us. Thus, if we
-		 * sample all 8 channels we need 1ms. If we sample only one
-		 * channel we need only 125us
-		 */
-		this_usbduxsub->ai_interval = 1;
-		/* find a power of 2 for the interval */
-		while ((this_usbduxsub->ai_interval) < (cmd->chanlist_len)) {
-			this_usbduxsub->ai_interval =
-			    (this_usbduxsub->ai_interval) * 2;
-		}
-		this_usbduxsub->ai_timer = cmd->scan_begin_arg / (125000 *
-							  (this_usbduxsub->
-							   ai_interval));
-	} else {
-		/* interval always 1ms */
-		this_usbduxsub->ai_interval = 1;
-		this_usbduxsub->ai_timer = cmd->scan_begin_arg / 1000000;
-	}
+	/* interval always 1ms */
+	this_usbduxsub->ai_interval = 1;
+	this_usbduxsub->ai_timer = cmd->scan_begin_arg / 1000000;
 
-	this_usbduxsub->ai_timer = 1;
 	printk(KERN_INFO "this_usbduxsub->ai_timer = %d", this_usbduxsub->ai_timer);
 
 	if (this_usbduxsub->ai_timer < 1) {
@@ -2398,37 +2375,37 @@ static void tidy_up(struct usbduxsub *usbduxsub_tmp)
 			usbduxsub_tmp->ai_cmd_running = 0;
 			usbduxsub_unlink_InURBs(usbduxsub_tmp);
 		}
-		for (i = 0; i < usbduxsub_tmp->numOfInBuffers; i++) {
-			kfree(usbduxsub_tmp->urbIn[i]->transfer_buffer);
-			usbduxsub_tmp->urbIn[i]->transfer_buffer = NULL;
-			usb_kill_urb(usbduxsub_tmp->urbIn[i]);
-			usb_free_urb(usbduxsub_tmp->urbIn[i]);
-			usbduxsub_tmp->urbIn[i] = NULL;
+		if (usbduxsub_tmp->urbIn->transfer_buffer) {
+			kfree(usbduxsub_tmp->urbIn->transfer_buffer);
+			usbduxsub_tmp->urbIn->transfer_buffer = NULL;
+		}
+		if (usbduxsub_tmp->urbIn) {
+			usb_kill_urb(usbduxsub_tmp->urbIn);
+			usb_free_urb(usbduxsub_tmp->urbIn);
+			usbduxsub_tmp->urbIn = NULL;
 		}
 		kfree(usbduxsub_tmp->urbIn);
 		usbduxsub_tmp->urbIn = NULL;
 	}
+
 	if (usbduxsub_tmp->urbOut) {
 		if (usbduxsub_tmp->ao_cmd_running) {
 			usbduxsub_tmp->ao_cmd_running = 0;
 			usbduxsub_unlink_OutURBs(usbduxsub_tmp);
 		}
-		for (i = 0; i < usbduxsub_tmp->numOfOutBuffers; i++) {
-			if (usbduxsub_tmp->urbOut[i]->transfer_buffer) {
-				kfree(usbduxsub_tmp->
-				      urbOut[i]->transfer_buffer);
-				usbduxsub_tmp->urbOut[i]->transfer_buffer =
-				    NULL;
-			}
-			if (usbduxsub_tmp->urbOut[i]) {
-				usb_kill_urb(usbduxsub_tmp->urbOut[i]);
-				usb_free_urb(usbduxsub_tmp->urbOut[i]);
-				usbduxsub_tmp->urbOut[i] = NULL;
-			}
+		if (usbduxsub_tmp->urbOut->transfer_buffer) {
+			kfree(usbduxsub_tmp->urbOut->transfer_buffer);
+			usbduxsub_tmp->urbOut->transfer_buffer = NULL;
+		}
+		if (usbduxsub_tmp->urbOut) {
+			usb_kill_urb(usbduxsub_tmp->urbOut);
+			usb_free_urb(usbduxsub_tmp->urbOut);
+			usbduxsub_tmp->urbOut = NULL;
 		}
 		kfree(usbduxsub_tmp->urbOut);
 		usbduxsub_tmp->urbOut = NULL;
 	}
+
 	if (usbduxsub_tmp->urbPwm) {
 		if (usbduxsub_tmp->pwm_cmd_running) {
 			usbduxsub_tmp->pwm_cmd_running = 0;
@@ -2440,16 +2417,17 @@ static void tidy_up(struct usbduxsub *usbduxsub_tmp)
 		usb_free_urb(usbduxsub_tmp->urbPwm);
 		usbduxsub_tmp->urbPwm = NULL;
 	}
+
 	kfree(usbduxsub_tmp->inBuffer);
 	usbduxsub_tmp->inBuffer = NULL;
 	kfree(usbduxsub_tmp->insnBuffer);
 	usbduxsub_tmp->insnBuffer = NULL;
-	kfree(usbduxsub_tmp->inBuffer);
-	usbduxsub_tmp->inBuffer = NULL;
+
 	kfree(usbduxsub_tmp->dac_commands);
 	usbduxsub_tmp->dac_commands = NULL;
 	kfree(usbduxsub_tmp->dux_commands);
 	usbduxsub_tmp->dux_commands = NULL;
+
 	usbduxsub_tmp->ai_cmd_running = 0;
 	usbduxsub_tmp->ao_cmd_running = 0;
 	usbduxsub_tmp->pwm_cmd_running = 0;
@@ -2565,7 +2543,7 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 	usbduxsub[index].dux_commands = kzalloc(SIZEOFDUXBUFFER, GFP_KERNEL);
 	if (!usbduxsub[index].dux_commands) {
 		dev_err(dev, "comedi_: usbdux: "
-			"error alloc space for dac commands\n");
+			"error alloc space for dux commands\n");
 		tidy_up(&(usbduxsub[index]));
 		up(&start_stop_sem);
 		return -ENOMEM;
@@ -2612,135 +2590,65 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 		return -ENODEV;
 	}
 	*/
-	if (usbduxsub[index].high_speed)
-		usbduxsub[index].numOfInBuffers = NUMOFINBUFFERSHIGH;
-	else
-		usbduxsub[index].numOfInBuffers = NUMOFINBUFFERSFULL;
 
-	usbduxsub[index].urbIn =
-	    kzalloc(sizeof(struct urb *) * usbduxsub[index].numOfInBuffers,
-		    GFP_KERNEL);
-	if (!(usbduxsub[index].urbIn)) {
-		dev_err(dev, "comedi_: usbdux: Could not alloc. urbIn array\n");
+	usbduxsub[index].urbIn = usb_alloc_urb(0, GFP_KERNEL);
+	if (!usbduxsub[index].urbIn) {
+		printk(KERN_ERR "comedi_: usbduxsub%d: Could not alloc."
+		       "urb\n", index);
 		tidy_up(&(usbduxsub[index]));
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
-	for (i = 0; i < usbduxsub[index].numOfInBuffers; i++) {
-		/* one frame: 1ms */
-		usbduxsub[index].urbIn[i] = usb_alloc_urb(1, GFP_KERNEL);
-		if (usbduxsub[index].urbIn[i] == NULL) {
-			dev_err(dev, "comedi_: usbdux%d: "
-				"Could not alloc. urb(%d)\n", index, i);
-			tidy_up(&(usbduxsub[index]));
-			up(&start_stop_sem);
-			return -ENOMEM;
-		}
-		usbduxsub[index].urbIn[i]->dev = usbduxsub[index].usbdev;
-		/* will be filled later with a pointer to the comedi-device */
-		/* and ONLY then the urb should be submitted */
-		usbduxsub[index].urbIn[i]->context = NULL;
-		usbduxsub[index].urbIn[i]->pipe =
-		    usb_rcvisocpipe(usbduxsub[index].usbdev, ISOINEP);
-		usbduxsub[index].urbIn[i]->transfer_flags = URB_ISO_ASAP;
-		usbduxsub[index].urbIn[i]->transfer_buffer =
-		    kzalloc(SIZEINBUF, GFP_KERNEL);
-		if (!(usbduxsub[index].urbIn[i]->transfer_buffer)) {
-			dev_err(dev, "comedi_: usbdux%d: "
-				"could not alloc. transb.\n", index);
-			tidy_up(&(usbduxsub[index]));
-			up(&start_stop_sem);
-			return -ENOMEM;
-		}
-		usbduxsub[index].urbIn[i]->complete = usbduxsub_ai_IsocIrq;
-		usbduxsub[index].urbIn[i]->number_of_packets = 1;
-		usbduxsub[index].urbIn[i]->transfer_buffer_length = SIZEINBUF;
-		usbduxsub[index].urbIn[i]->iso_frame_desc[0].offset = 0;
-		usbduxsub[index].urbIn[i]->iso_frame_desc[0].length = SIZEINBUF;
+	usbduxsub[index].urbIn->dev = usbduxsub[index].usbdev;
+	usbduxsub[index].urbIn->context = NULL;
+	usbduxsub[index].urbIn->pipe = usb_rcvisocpipe(usbduxsub[index].usbdev, ISOINEP);
+	usbduxsub[index].urbIn->transfer_flags = URB_ISO_ASAP;
+	usbduxsub[index].urbIn->transfer_buffer = kzalloc(SIZEINBUF, GFP_KERNEL);
+	if (!(usbduxsub[index].urbIn->transfer_buffer)) {
+		dev_err(dev, "comedi_: usbdux%d: "
+			"could not alloc. transb.\n", index);
+		tidy_up(&(usbduxsub[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
 	}
+	usbduxsub[index].urbIn->complete = usbduxsub_ai_IsocIrq;
+	usbduxsub[index].urbIn->number_of_packets = 1;
+	usbduxsub[index].urbIn->transfer_buffer_length = SIZEINBUF;
+	usbduxsub[index].urbIn->iso_frame_desc[0].offset = 0;
+	usbduxsub[index].urbIn->iso_frame_desc[0].length = SIZEINBUF;
+	usbduxsub[index].urbIn->interval = 1;
 
 	/* out */
-	if (usbduxsub[index].high_speed)
-		usbduxsub[index].numOfOutBuffers = NUMOFOUTBUFFERSHIGH;
-	else
-		usbduxsub[index].numOfOutBuffers = NUMOFOUTBUFFERSFULL;
-
-	usbduxsub[index].urbOut =
-	    kzalloc(sizeof(struct urb *) * usbduxsub[index].numOfOutBuffers,
-		    GFP_KERNEL);
-	if (!(usbduxsub[index].urbOut)) {
-		dev_err(dev, "comedi_: usbdux: "
-			"Could not alloc. urbOut array\n");
+	usbduxsub[index].urbOut = usb_alloc_urb(1, GFP_KERNEL);
+	if (usbduxsub[index].urbOut == NULL) {
+		dev_err(dev, "comedi_: usbdux%d: "
+			"Could not alloc. urb(%d)\n", index, i);
 		tidy_up(&(usbduxsub[index]));
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
-	for (i = 0; i < usbduxsub[index].numOfOutBuffers; i++) {
-		/* one frame: 1ms */
-		usbduxsub[index].urbOut[i] = usb_alloc_urb(1, GFP_KERNEL);
-		if (usbduxsub[index].urbOut[i] == NULL) {
-			dev_err(dev, "comedi_: usbdux%d: "
-				"Could not alloc. urb(%d)\n", index, i);
-			tidy_up(&(usbduxsub[index]));
-			up(&start_stop_sem);
-			return -ENOMEM;
-		}
-		usbduxsub[index].urbOut[i]->dev = usbduxsub[index].usbdev;
-		/* will be filled later with a pointer to the comedi-device */
-		/* and ONLY then the urb should be submitted */
-		usbduxsub[index].urbOut[i]->context = NULL;
-		usbduxsub[index].urbOut[i]->pipe =
-		    usb_sndisocpipe(usbduxsub[index].usbdev, ISOOUTEP);
-		usbduxsub[index].urbOut[i]->transfer_flags = URB_ISO_ASAP;
-		usbduxsub[index].urbOut[i]->transfer_buffer =
-		    kzalloc(SIZEOUTBUF, GFP_KERNEL);
-		if (!(usbduxsub[index].urbOut[i]->transfer_buffer)) {
-			dev_err(dev, "comedi_: usbdux%d: "
-				"could not alloc. transb.\n", index);
-			tidy_up(&(usbduxsub[index]));
-			up(&start_stop_sem);
-			return -ENOMEM;
-		}
-		usbduxsub[index].urbOut[i]->complete = usbduxsub_ao_IsocIrq;
-		usbduxsub[index].urbOut[i]->number_of_packets = 1;
-		usbduxsub[index].urbOut[i]->transfer_buffer_length = SIZEOUTBUF;
-		usbduxsub[index].urbOut[i]->iso_frame_desc[0].offset = 0;
-		usbduxsub[index].urbOut[i]->iso_frame_desc[0].length =
-		    SIZEOUTBUF;
-		if (usbduxsub[index].high_speed) {
-			/* uframes */
-			usbduxsub[index].urbOut[i]->interval = 8;
-		} else {
-			/* frames */
-			usbduxsub[index].urbOut[i]->interval = 1;
-		}
+	usbduxsub[index].urbOut->dev = usbduxsub[index].usbdev;
+	usbduxsub[index].urbOut->context = NULL;
+	usbduxsub[index].urbOut->pipe = usb_sndisocpipe(usbduxsub[index].usbdev, ISOOUTEP);
+	usbduxsub[index].urbOut->transfer_flags = URB_ISO_ASAP;
+	usbduxsub[index].urbOut->transfer_buffer = kzalloc(SIZEOUTBUF, GFP_KERNEL);
+	if (!(usbduxsub[index].urbOut->transfer_buffer)) {
+		dev_err(dev, "comedi_: usbdux%d: "
+			"could not alloc. transb.\n", index);
+		tidy_up(&(usbduxsub[index]));
+		up(&start_stop_sem);
+		return -ENOMEM;
 	}
+	usbduxsub[index].urbOut->complete = usbduxsub_ao_IsocIrq;
+	usbduxsub[index].urbOut->number_of_packets = 1;
+	usbduxsub[index].urbOut->transfer_buffer_length = SIZEOUTBUF;
+	usbduxsub[index].urbOut->iso_frame_desc[0].offset = 0;
+	usbduxsub[index].urbOut->iso_frame_desc[0].length = SIZEOUTBUF;
+	usbduxsub[index].urbOut->interval = 1;
 
 	/* pwm */
-	if (usbduxsub[index].high_speed) {
-		/* max bulk ep size in high speed */
-		usbduxsub[index].sizePwmBuf = 512;
-		usbduxsub[index].urbPwm = usb_alloc_urb(0, GFP_KERNEL);
-		if (usbduxsub[index].urbPwm == NULL) {
-			dev_err(dev, "comedi_: usbdux%d: "
-				"Could not alloc. pwm urb\n", index);
-			tidy_up(&(usbduxsub[index]));
-			up(&start_stop_sem);
-			return -ENOMEM;
-		}
-		usbduxsub[index].urbPwm->transfer_buffer =
-		    kzalloc(usbduxsub[index].sizePwmBuf, GFP_KERNEL);
-		if (!(usbduxsub[index].urbPwm->transfer_buffer)) {
-			dev_err(dev, "comedi_: usbdux%d: "
-				"could not alloc. transb. for pwm\n", index);
-			tidy_up(&(usbduxsub[index]));
-			up(&start_stop_sem);
-			return -ENOMEM;
-		}
-	} else {
-		usbduxsub[index].urbPwm = NULL;
-		usbduxsub[index].sizePwmBuf = 0;
-	}
+	usbduxsub[index].urbPwm = NULL;
+	usbduxsub[index].sizePwmBuf = 0;
 
 	usbduxsub[index].ai_cmd_running = 0;
 	usbduxsub[index].ao_cmd_running = 0;
@@ -2881,29 +2789,17 @@ static int usbdux_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 
 	/* the first subdevice */
 	s = dev->subdevices + 0;
-	/* the URBs get the comedi subdevice */
-	/* which is responsible for reading */
-	/* this is the subdevice which reads data */
 	dev->read_subdev = s;
-	/* the subdevice receives as private structure the */
-	/* usb-structure */
 	s->private = NULL;
-	/* analog input */
 	s->type = COMEDI_SUBD_AI;
-	/* readable and ref is to ground */
-	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_CMD_READ;
-	/* 8 channels */
+	s->subdev_flags = SDF_READABLE | SDF_CMD_READ;
 	s->n_chan = 8;
-	/* length of the channellist */
 	s->len_chanlist = 8;
-	/* callback functions */
 	s->insn_read = usbdux_ai_insn_read;
 	s->do_cmdtest = usbdux_ai_cmdtest;     /** IMP **/
 	s->do_cmd = usbdux_ai_cmd;
 	s->cancel = usbdux_ai_cancel;
-	/* max value from the A/D converter (12bit) */
 	s->maxdata = 0xfff;
-	/* range table to convert to physical units */
 	s->range_table = (&range_usbdux_ai_range);
 
 	/* finally decide that it's attached */
