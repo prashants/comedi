@@ -935,12 +935,29 @@ static int usbduxsub_submit_InURBs(struct usbduxsub *usbduxsub)
 				       &count, HZ*10);
 		/* if the read was successful, copy the data to user space */
 		if (!ret) {
-			printk(KERN_INFO "error received data");
+			printk("URBIN !ret : pipe %d\n", usbduxsub->urbIn->pipe);
+			printk("URBIN : status %d\n", usbduxsub->urbIn->status);
+			printk("URBIN : transfer_flags %d\n", usbduxsub->urbIn->transfer_flags);
+			printk("URBIN : actual_length %d\n", usbduxsub->urbIn->actual_length);
+			printk("URBIN : start_frame %d\n", usbduxsub->urbIn->start_frame);
+			printk("URBIN : number_of_packets %d\n", usbduxsub->urbIn->number_of_packets);
+			printk("URBIN : interval %d\n", usbduxsub->urbIn->interval);
+			printk("URBIN : error_count %d\n", usbduxsub->urbIn->error_count);
+			printk("*** count %d\n", count);
+			printk("*** buffer %s\n", usbduxsub->inBuffer);
 		} else {
-			printk("*** count %d", count);
-			printk("*** buffer %s", usbduxsub->inBuffer);
+			printk("URBIN ret : pipe %d\n", usbduxsub->urbIn->pipe);
+			printk("URBIN : status %d\n", usbduxsub->urbIn->status);
+			printk("URBIN : transfer_flags %d\n", usbduxsub->urbIn->transfer_flags);
+			printk("URBIN : actual_length %d\n", usbduxsub->urbIn->actual_length);
+			printk("URBIN : start_frame %d\n", usbduxsub->urbIn->start_frame);
+			printk("URBIN : number_of_packets %d\n", usbduxsub->urbIn->number_of_packets);
+			printk("URBIN : interval %d\n", usbduxsub->urbIn->interval);
+			printk("URBIN : error_count %d\n", usbduxsub->urbIn->error_count);
+			printk("*** count %d\n", count);
+			printk("*** buffer %s\n", usbduxsub->inBuffer);
 		}
-		  
+
 	return 0;
 }
 
