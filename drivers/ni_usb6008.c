@@ -119,7 +119,7 @@ sampling rate. If you sample two channels you get 4kHz and so on.
  * upload special firmware (programming the eeprom etc) which is not compatible
  * with the comedi framwork
  */
-#define USBDUXSUB_MINOR 32
+#define USBDUXSUB_MINOR 10
 
 /* max lenghth of the transfer-buffer for software upload */
 #define TB_LEN 0x2000
@@ -1357,6 +1357,9 @@ static int usbdux_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 		this_usbduxsub->ai_interval = 1;
 		this_usbduxsub->ai_timer = cmd->scan_begin_arg / 1000000;
 	}
+
+	printk(KERN_INFO "this_usbduxsub->ai_timer = %d", this_usbduxsub->ai_timer);
+
 	if (this_usbduxsub->ai_timer < 1) {
 		dev_err(&this_usbduxsub->interface->dev, "comedi%d: ai_cmd: "
 			"timer=%d, scan_begin_arg=%d. "
@@ -2447,11 +2450,11 @@ static void usbdux_firmware_request_complete_handler(const struct firmware *fw,
 	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
 	printk(KERN_INFO "comedi_: ni_usb6008: address of usbdev is %p\n", usbdev);
 
-	if (fw == NULL) {
+	/* if (fw == NULL) {
 		dev_err(&usbdev->dev,
 			"Firmware complete handler without firmware!\n");
 		return;
-	}
+	} */
 
 	/*
 	 * we need to upload the firmware here because fw will be
@@ -2465,9 +2468,21 @@ static void usbdux_firmware_request_complete_handler(const struct firmware *fw,
 			"Could not upload firmware (err=%d)\n", ret);
 		goto out;
 	}*/
-	ret = comedi_usb_auto_config(usbdev, BOARDNAME);
-	printk(KERN_INFO "********comedi_: usbdux: IMP! auto config return value %d\n", ret);
 
+	ret = comedi_usb_auto_config(usbdev, BOARDNAME);
+	printk(KERN_INFO "******** comedi_: usbdux: IMP! auto config return value %d\n", ret);
+
+}
+
+static int usbduxsub_autoconfig(struct usb_device *udev)
+{
+	int ret = 0;
+
+	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
+
+	ret = comedi_usb_auto_config(udev, BOARDNAME);
+	printk(KERN_INFO "comedi_: usbdux: auto config return value %d ", ret);
+	return ret;
 }
 
 /* allocate memory for the urbs and initialise them */
@@ -2718,11 +2733,14 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 
 	/* we've reached the bottom of the function */
 	usbduxsub[index].probed = 1;
+
+	printk(KERN_INFO "comedi_: ni_usb6008: address of udev in probe is %p\n", udev);
+
 	up(&start_stop_sem);
 
 	ret = request_firmware_nowait(THIS_MODULE,
 				      FW_ACTION_HOTPLUG,
-				      "usbdux_firmware.bin",
+				      "usbdux_firmware1.bin",
 				      &udev->dev,
 				      GFP_KERNEL,
 				      usbduxsub + index,
@@ -2733,16 +2751,15 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 		return ret;
 	}
 
-	printk(KERN_INFO "comedi_: ni_usb6008: address of udev in probe is %p\n", udev);
-
 /*	ret = comedi_usb_auto_config(udev, BOARDNAME);
 	printk(KERN_INFO "comedi_: usbdux: auto config return value %d ", ret);
 	if (ret < 0)
 		return ret;*/
 
-	dev_info(dev, "comedi_: usbdux%d "
+	printk(KERN_INFO "comedi_: usbdux%d "
 		 "has been successfully initialised.\n", index);
 	/* success */
+
 	return 0;
 }
 
