@@ -252,7 +252,6 @@ struct usbduxsub {
 	struct urb *urbPwm;
 
 	int8_t *transfer_buffer;
-	/* input buffer for the ISO-transfer */
 	char *inBuffer;
 	int16_t *outBuffer;
 	int16_t *insnBuffer;
@@ -1315,6 +1314,7 @@ static int usbdux_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 
 	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
 
+	return 0;
 	if (!this_usbduxsub)
 		return -EFAULT;
 
@@ -1354,75 +1354,91 @@ static int usbdux_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 		up(&this_usbduxsub->sem);
 		return -EBUSY;
 	}
-	/* set current channel of the running aquisition to zero */
-	s->async->cur_chan = 0;
 	
-	this_usbduxsub->dux_commands[1] = cmd->chanlist_len;
-	for (i = 0; i < cmd->chanlist_len; ++i) {
-		chan = CR_CHAN(cmd->chanlist[i]);
-		range = CR_RANGE(cmd->chanlist[i]);
-		if (i >= NUMCHANNELS) {
-			dev_err(&this_usbduxsub->interface->dev,
-				"comedi%d: channel list too long\n",
-				dev->minor);
-			break;
-		}
-		this_usbduxsub->dux_commands[i + 2] =
-		    create_adc_command(chan, range);
-	}
 
-	printk("comedi %d: sending commands to the usb device: size=%u\n",
-		dev->minor, NUMCHANNELS);
-
-	result = send_dux_commands(this_usbduxsub, SENDADCOMMANDS);
+	usb_fill_bulk_urb(this_usbduxsub->urbIn,
+		dev,
+		usb_sndbulkpipe(usbduxsub->usbdev, 0x81),
+		this_usbduxsub->transfer_buffer,
+		SIZEINBUF,
+		test_callback,
+		this_usbduxsub);
+	result = usb_submit_urb(this_usbduxsub->urbIn, GFP_KERNEL);
 	if (result < 0) {
+		this_usbduxsub->ai_cmd_running = 0;
 		up(&this_usbduxsub->sem);
 		return result;
 	}
 
-	/* interval always 1ms */
-	this_usbduxsub->ai_interval = 1;
-	this_usbduxsub->ai_timer = cmd->scan_begin_arg / 1000000;
-
-	printk(KERN_INFO "this_usbduxsub->ai_timer = %d", this_usbduxsub->ai_timer);
-
-	if (this_usbduxsub->ai_timer < 1) {
-		dev_err(&this_usbduxsub->interface->dev, "comedi%d: ai_cmd: "
-			"timer=%d, scan_begin_arg=%d. "
-			"Not properly tested by cmdtest?\n", dev->minor,
-			this_usbduxsub->ai_timer, cmd->scan_begin_arg);
-		up(&this_usbduxsub->sem);
-		return -EINVAL;
-	}
-	this_usbduxsub->ai_counter = this_usbduxsub->ai_timer;
-
-	if (cmd->stop_src == TRIG_COUNT) {
-		/* data arrives as one packet */
-		this_usbduxsub->ai_sample_count = cmd->stop_arg;
-		this_usbduxsub->ai_continous = 0;
-	} else {
-		/* continous aquisition */
-		this_usbduxsub->ai_continous = 1;
-		this_usbduxsub->ai_sample_count = 0;
-	}
-
-	if (cmd->start_src == TRIG_NOW) {
-		/* enable this acquisition operation */
-		this_usbduxsub->ai_cmd_running = 1;
-		ret = usbduxsub_submit_InURBs(this_usbduxsub);
-		if (ret < 0) {
-			this_usbduxsub->ai_cmd_running = 0;
-			/* fixme: unlink here?? */
-			up(&this_usbduxsub->sem);
-			return ret;
-		}
-		s->async->inttrig = NULL;
-	} else {
-		/* TRIG_INT */
-		/* don't enable the acquision operation */
-		/* wait for an internal signal */
-		s->async->inttrig = usbdux_ai_inttrig;
-	}
+	// /* set current channel of the running aquisition to zero */
+	// s->async->cur_chan = 0;
+// 
+	// this_usbduxsub->dux_commands[1] = cmd->chanlist_len;
+	// for (i = 0; i < cmd->chanlist_len; ++i) {
+		// chan = CR_CHAN(cmd->chanlist[i]);
+		// range = CR_RANGE(cmd->chanlist[i]);
+		// if (i >= NUMCHANNELS) {
+			// dev_err(&this_usbduxsub->interface->dev,
+				// "comedi%d: channel list too long\n",
+				// dev->minor);
+			// break;
+		// }
+		// this_usbduxsub->dux_commands[i + 2] =
+		    // create_adc_command(chan, range);
+	// }
+// 
+	// printk("comedi %d: sending commands to the usb device: size=%u\n",
+		// dev->minor, NUMCHANNELS);
+// 
+	// result = send_dux_commands(this_usbduxsub, SENDADCOMMANDS);
+	// if (result < 0) {
+		// up(&this_usbduxsub->sem);
+		// return result;
+	// }
+// 
+	// /* interval always 1ms */
+	// this_usbduxsub->ai_interval = 1;
+	// this_usbduxsub->ai_timer = cmd->scan_begin_arg / 1000000;
+// 
+	// printk(KERN_INFO "this_usbduxsub->ai_timer = %d", this_usbduxsub->ai_timer);
+// 
+	// if (this_usbduxsub->ai_timer < 1) {
+		// dev_err(&this_usbduxsub->interface->dev, "comedi%d: ai_cmd: "
+			// "timer=%d, scan_begin_arg=%d. "
+			// "Not properly tested by cmdtest?\n", dev->minor,
+			// this_usbduxsub->ai_timer, cmd->scan_begin_arg);
+		// up(&this_usbduxsub->sem);
+		// return -EINVAL;
+	// }
+	// this_usbduxsub->ai_counter = this_usbduxsub->ai_timer;
+// 
+	// if (cmd->stop_src == TRIG_COUNT) {
+		// /* data arrives as one packet */
+		// this_usbduxsub->ai_sample_count = cmd->stop_arg;
+		// this_usbduxsub->ai_continous = 0;
+	// } else {
+		// /* continous aquisition */
+		// this_usbduxsub->ai_continous = 1;
+		// this_usbduxsub->ai_sample_count = 0;
+	// }
+// 
+	// if (cmd->start_src == TRIG_NOW) {
+		// /* enable this acquisition operation */
+		// this_usbduxsub->ai_cmd_running = 1;
+		// ret = usbduxsub_submit_InURBs(this_usbduxsub);
+		// if (ret < 0) {
+			// this_usbduxsub->ai_cmd_running = 0;
+			// /* fixme: unlink here?? */
+			// up(&this_usbduxsub->sem);
+			// return ret;
+		// }
+		// s->async->inttrig = NULL;
+	// } else {
+		// /* TRIG_INT */
+		// /* don't enable the acquision operation */
+		// /* wait for an internal signal */
+		// s->async->inttrig = usbdux_ai_inttrig;
+	// }
 	up(&this_usbduxsub->sem);
 	return 0;
 }
@@ -2582,7 +2598,7 @@ static int usbduxsub_probe(struct usb_interface *uinterf,
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
-	/* create space for the in buffer and set it to zero */
+	/* create space for the in buffer */
 	usbduxsub[index].inBuffer = kzalloc(SIZEINBUF, GFP_KERNEL);
 	if (!(usbduxsub[index].inBuffer)) {
 		dev_err(dev, "comedi_: usbdux: "
@@ -2826,9 +2842,9 @@ static int usbdux_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	dev->read_subdev = s;
 	s->private = NULL;
 	s->type = COMEDI_SUBD_AI;
-	s->subdev_flags = SDF_READABLE | SDF_CMD_READ;
-	s->n_chan = 8;
-	s->len_chanlist = 8;
+	s->subdev_flags = SDF_READABLE |  SDF_GROUND | SDF_CMD_READ;
+	s->n_chan = 7;
+	s->len_chanlist = 7;
 	s->insn_read = usbdux_ai_insn_read;
 	s->do_cmdtest = usbdux_ai_cmdtest;     /** IMP **/
 	s->do_cmd = usbdux_ai_cmd;
