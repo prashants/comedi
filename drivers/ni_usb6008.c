@@ -216,19 +216,15 @@ sampling rate. If you sample two channels you get 4kHz and so on.
 
 /**************************************************/
 /* comedi constants */
-static const struct comedi_lrange range_usbdux_ai_range = { 4, {
-								BIP_RANGE
-								(4.096),
-								UNI_RANGE
-								(4.096),
+static const struct comedi_lrange range_usbdux_ai_range = { 2, {
+								BIP_RANGE(1.0),
+								BIP_RANGE(10.0),
 								}
 };
 
 static const struct comedi_lrange range_usbdux_ao_range = { 2, {
-								BIP_RANGE
-								(4.096),
-								UNI_RANGE
-								(4.096),
+								BIP_RANGE(5.0),
+								BIP_RANGE(5.0),
 								}
 };
 
@@ -997,17 +993,15 @@ static int usbdux_ai_cmdtest(struct comedi_device *dev,
 
 	/* DEBUG DATA */
 	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice type %d\n", s->type);
-	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice type %d\n", s->n_chan);
-	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice type %d\n", s->len_chanlist);
-	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice type %d\n", s->state);
-	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice type %d\n", s->subdev_flags);	
-	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice type %d\n", s->io_bits);
-
-	printk(KERN_INFO "comedi_: ni_usb6008: cmd type %d\n", cmd->subdev);
-	printk(KERN_INFO "comedi_: ni_usb6008: cmd type %d\n", cmd-> flags);
-	printk(KERN_INFO "comedi_: ni_usb6008: cmd type %d\n", cmd->chanlist_len);
-	printk(KERN_INFO "comedi_: ni_usb6008: cmd type %d\n", cmd->data_len);
-	
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice n_chan %d\n", s->n_chan);
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice len_chanlist %d\n", s->len_chanlist);
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice state %d\n", s->state);
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice subdev_flags %d\n", s->subdev_flags);	
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice io_bits %d\n", s->io_bits);
+	printk(KERN_INFO "comedi_: ni_usb6008: cmd subdev %d\n", cmd->subdev);
+	printk(KERN_INFO "comedi_: ni_usb6008: cmd flags %d\n", cmd->flags);
+	printk(KERN_INFO "comedi_: ni_usb6008: cmd chanlist_len %d\n", cmd->chanlist_len);
+	printk(KERN_INFO "comedi_: ni_usb6008: cmd data_len %d\n", cmd->data_len);
 	printk(KERN_INFO "comedi_: ni_usb6008: %s\n", __func__);
 
 	if (!(this_usbduxsub->probed))
@@ -1324,9 +1318,15 @@ static int usbdux_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 	if (!this_usbduxsub)
 		return -EFAULT;
 
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice type %d\n", s->type);
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice chan %d\n", s->n_chan);
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice chanlist %d\n", s->len_chanlist);
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice state %d\n", s->state);
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice subdev_flags %d\n", s->subdev_flags);	
+	printk(KERN_INFO "comedi_: ni_usb6008: comedi_subdevice io_bits %d\n", s->io_bits);
+
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd subdev %d\n", cmd->subdev);
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd flags %d\n", cmd->flags);
-
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd start_src %d\n", cmd->start_src);
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd start_arg %d\n", cmd->start_arg);
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd scan_begin_src %d\n", cmd->scan_begin_src);
@@ -1337,7 +1337,6 @@ static int usbdux_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd scan_end_arg %d\n", cmd->scan_end_arg);
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd stop_src %d\n", cmd->stop_src);
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd stop_arg %d\n", cmd->stop_arg);
-
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd chanlist_len %d\n", cmd->chanlist_len);
 	printk(KERN_INFO "comedi_: ni_usb6008: usbdux_ai_cmd cmd data_len %d\n", cmd->data_len);
 
