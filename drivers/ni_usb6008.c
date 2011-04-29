@@ -58,8 +58,8 @@
 #define BULK_TIMEOUT		1000
 #define RETRIES			10
 
-#define COMMAND_OUT_EP     	1
-#define COMMAND_IN_EP        	8
+#define COMMAND_IN_EP        	0x81
+#define COMMAND_OUT_EP     	0x01
 
 static DECLARE_MUTEX(start_stop_sem);
 
@@ -795,18 +795,18 @@ static void ni_usb6008_ai_IsocIrq(struct urb *urb)
 	urb->dev = ni_usb6008_tmp->usbdev;
 
 	/* resubmit the urb */
-	err = usb_submit_urb(urb, GFP_ATOMIC);
-	if (unlikely(err < 0)) {
-		printk(KERN_ERR "comedi%d: ni_usb6008: urb resubmit failed in int-context! err=%d\n", minor, err);
-		if (err == -EL2NSYNC)
-			printk(KERN_ERR "comedi%d: ni_usb6008: buggy USB host controller or bug in IRQ handler!\n", minor);
-		s->async->events |= COMEDI_CB_EOA;
-		s->async->events |= COMEDI_CB_ERROR;
-		comedi_event(ni_usb6008_tmp->comedidev, s);
-		/* don't do an unlink here */
-		ni_usb6008_ai_stop(ni_usb6008_tmp, 0);
-		return;
-	}
+	// err = usb_submit_urb(urb, GFP_ATOMIC);
+	// if (unlikely(err < 0)) {
+		// printk(KERN_ERR "comedi%d: ni_usb6008: urb resubmit failed in int-context! err=%d\n", minor, err);
+		// if (err == -EL2NSYNC)
+			// printk(KERN_ERR "comedi%d: ni_usb6008: buggy USB host controller or bug in IRQ handler!\n", minor);
+		// s->async->events |= COMEDI_CB_EOA;
+		// s->async->events |= COMEDI_CB_ERROR;
+		// comedi_event(ni_usb6008_tmp->comedidev, s);
+		// /* don't do an unlink here */
+		// ni_usb6008_ai_stop(ni_usb6008_tmp, 0);
+		// return;
+	// }
 
 	ni_usb6008_tmp->ai_counter--;
 	if (likely(ni_usb6008_tmp->ai_counter > 0))
@@ -1249,8 +1249,8 @@ static int ni_usb6008_attach(struct comedi_device *dev, struct comedi_devconfig 
 	s->private = NULL;
 	s->type = COMEDI_SUBD_AI;
 	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_CMD_READ;
-	s->n_chan = 8;
-	s->len_chanlist = 8;
+	s->n_chan = 7;
+	s->len_chanlist = 7;
 	s->insn_read = ni_usb6008_ai_insn_read;
 	s->do_cmdtest = ni_usb6008_ai_cmdtest;
 	s->do_cmd = ni_usb6008_ai_cmd;
