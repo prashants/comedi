@@ -743,6 +743,7 @@ static void ni_usb6008_ai_IsocIrq(struct urb *urb)
 	case 0:
 		/* copy the result in the transfer buffer */
 		DPRINTK(KERN_INFO "comedi%d: ni_usb6008: copying data to transfer_buffer\n", minor);
+		DPRINTK(KERN_INFO "comedi%d: ni_usb6008: data transfer_buffer = %s\n", minor, (char *)urb->transfer_buffer);
 		memcpy(ni_usb6008_tmp->inBuffer, urb->transfer_buffer, SIZE_IN_BUF);
 		break;
 	case -EILSEQ:
@@ -834,7 +835,7 @@ static void ni_usb6008_ai_IsocIrq(struct urb *urb)
 	for (i = 0; i < n; i++) {
 		/* transfer data */
 		if (CR_RANGE(s->async->cmd.chanlist[i]) <= 1) {
-			err = comedi_buf_put(s->async, le16_to_cpu(ni_usb6008_tmp->inBuffer[i]));
+			err = comedi_buf_put(s->async, le16_to_cpu(ni_usb6008_tmp->inBuffer[i]) ^ 0x800);
 		} else {
 			err = comedi_buf_put(s->async, le16_to_cpu(ni_usb6008_tmp->inBuffer[i]));
 		}
@@ -1033,7 +1034,7 @@ static int ni_usb6008_probe(struct usb_interface *uinterf,
 	usb_set_intfdata(uinterf, &(ni_usb6008[index]));
 
 	DPRINTK("comedi_: ni_usb6008: ifnum=%d\n", ni_usb6008[index].ifnum);
-	DPRINTK("comedi_: ni_usb6008: ifnum=%d\n", uinterf->num_altsetting);
+	DPRINTK("comedi_: ni_usb6008: num settings=%d\n", uinterf->num_altsetting);
 
 	/* create space for the commands going to the usb device */
 	ni_usb6008[index].dux_commands = kzalloc(SIZE_DUX_CMD_BUF, GFP_KERNEL);
