@@ -48,7 +48,7 @@
 #define SIZE_OUT_BUF		64
 #define SIZE_INSN_BUF		64
 #define SIZE_DUX_CMD_BUF	8
-#define SIZE_DAX_CMD_BUF	8
+#define SIZE_DAC_CMD_BUF	8
 
 /* Input endpoint number */
 #define INPUT_ENDPOINT_NUM	0x81
@@ -1028,11 +1028,12 @@ static int ni_usb6008_probe(struct usb_interface *uinterf,
 	/* 2.6: save the interface itself */
 	ni_usb6008[index].interface = uinterf;
 
-	ni_usb6008[index].ifnum = uinterf->altsetting->desc.bInterfaceNumber;
+	ni_usb6008[index].ifnum = uinterf->cur_altsetting->desc.bInterfaceNumber;
 
 	usb_set_intfdata(uinterf, &(ni_usb6008[index]));
 
-	dev_dbg(dev, "comedi_: ni_usb6008: ifnum=%d\n", ni_usb6008[index].ifnum);
+	DPRINTK("comedi_: ni_usb6008: ifnum=%d\n", ni_usb6008[index].ifnum);
+	DPRINTK("comedi_: ni_usb6008: ifnum=%d\n", uinterf->num_altsetting);
 
 	/* create space for the commands going to the usb device */
 	ni_usb6008[index].dux_commands = kzalloc(SIZE_DUX_CMD_BUF, GFP_KERNEL);
@@ -1042,7 +1043,7 @@ static int ni_usb6008_probe(struct usb_interface *uinterf,
 		up(&start_stop_sem);
 		return -ENOMEM;
 	}
-	ni_usb6008[index].dac_commands = kzalloc(SIZE_DAX_CMD_BUF, GFP_KERNEL);
+	ni_usb6008[index].dac_commands = kzalloc(SIZE_DAC_CMD_BUF, GFP_KERNEL);
 	if (!ni_usb6008[index].dac_commands) {
 		printk(KERN_ERR "comedi%d: ni_usb6008: error alloc space for device commands\n", index);
 		tidy_up(&(ni_usb6008[index]));
