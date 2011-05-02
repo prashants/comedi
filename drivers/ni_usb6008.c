@@ -996,9 +996,68 @@ static int ni_usb6008_probe(struct usb_interface *uinterf,
 {
 	struct usb_device *udev = interface_to_usbdev(uinterf);
 	struct device *dev = &uinterf->dev;
-	int i;
+	int i, j, k;
 	int index;
 	int ret;
+	struct usb_host_interface *iface_desc;
+	struct usb_endpoint_descriptor *ep_desc;
+/*
+	struct usb_device_descriptor udevdesc;
+	struct usb_host_config *udevconfig;
+	struct usb_config_descriptor udevconfdesc;
+	struct usb_interface *udevinterface;
+	struct usb_host_interface *udevaltsettings;
+	struct usb_interface_descriptor udevidesc;
+	struct usb_host_endpoint *udevendpoint;
+	struct usb_endpoint_descriptor udevedesc;
+
+*/ /** PRINT CONFIGURATION **/ /*
+udevdesc = udev->descriptor;
+udevconfig = udev->actconfig;
+udevconfdesc = udevconfig->desc;
+
+printk(KERN_INFO "bNumInterfaces %d", udevconfdesc.bNumInterfaces);
+for (i = 0; i < udevconfdesc.bNumInterfaces; i++) {
+	udevinterface = udev->actconfig->interface[i];
+	printk(KERN_INFO "num_altsetting %d for interface %d", udevinterface->num_altsetting, i);
+	for (j = 0; j < udevinterface->num_altsetting; j++) {
+		udevaltsettings = &udevinterface->altsetting[j];
+		udevidesc = udevaltsettings->desc;
+		printk(KERN_INFO "bNumEndpoints %d for altsetting %d and interface %d",
+			udevidesc.bNumEndpoints, j, i);
+		for (k = 0; k < udevidesc.bNumEndpoints; k++) {
+			udevendpoint = &udevaltsettings->endpoint[k];
+			udevedesc = udevendpoint->desc;
+			printk(KERN_INFO "Endpoint Address = %d\n", udevedesc.bEndpointAddress);
+		}
+	}
+} */
+
+	iface_desc = uinterf->cur_altsetting;
+
+	for (i = 0; i < iface_desc->desc.bNumEndpoints; i++) {
+		ep_desc = &iface_desc->endpoint[i].desc;
+
+		if (usb_endpoint_is_int_in(ep_desc)) {
+			printk(KERN_INFO "INT IN\n");
+			continue;
+		}
+
+		if (usb_endpoint_is_int_out(ep_desc)) {
+			printk(KERN_INFO "INT OUT\n");
+			continue;
+		}
+
+		if (usb_endpoint_is_bulk_in(ep_desc)) {
+			printk(KERN_INFO "BULK IN\n");
+			continue;
+		}
+
+		if (usb_endpoint_is_bulk_out(ep_desc)) {
+			printk(KERN_INFO "BULK OUT\n");
+			continue;
+		}
+	}
 
 	DPRINTK(KERN_INFO "comedi: ni_usb6008: %s\n", __func__);
 
@@ -1019,7 +1078,7 @@ static int ni_usb6008_probe(struct usb_interface *uinterf,
 		up(&start_stop_sem);
 		return -EMFILE;
 	}
-	dev_dbg(dev, "comedi_: ni_usb6008: "
+	printk(KERN_INFO "comedi_: ni_usb6008: "
 		"ni_usb6008[%d] is ready to connect to comedi.\n", index);
 
 	init_MUTEX(&(ni_usb6008[index].sem));
