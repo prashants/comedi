@@ -415,6 +415,8 @@ static int ni_usb6008_ai_cmd(struct comedi_device *dev, struct comedi_subdevice 
 static void ni_usb6008_ai_completion(struct urb *urb)
 {
 	DPRINTK(KERN_INFO "comedi: ni_usb6008: %s\n", __func__);
+	printk(KERN_INFO "comedi: ni_usb6008: URB actual_length = %d\n", urb->actual_length);
+	printk(KERN_INFO "comedi: ni_usb6008: URB error_count = %d\n", urb->error_count);
 }
 
 /******************************************************************************/
