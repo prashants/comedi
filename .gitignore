@@ -1,0 +1,10 @@
+*.o
+*.cmd
+drivers/*.ko
+drivers/*.o
+drivers/*.mod.c
+drivers/*.cmd
+kcomedilib/*.o
+kcomedilib/*.o
+kcomedilib/*.mod.c
+kcomedilib/*.cmd
