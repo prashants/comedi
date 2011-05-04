@@ -210,7 +210,7 @@ static int ni_usb6008_submit_InURBs(struct ni_usb6008_struct *ni_usb6008_tmp)
 	ni_usb6008_tmp->urbIn->context = ni_usb6008_tmp->comedidev;
 	ni_usb6008_tmp->urbIn->dev = ni_usb6008_tmp->usbdev;
 	ni_usb6008_tmp->urbIn->status = 0;
-	ni_usb6008_tmp->urbIn->transfer_flags = URB_ISO_ASAP;
+	ni_usb6008_tmp->urbIn->transfer_flags = URB_FREE_BUFFER;
 
 	ret = usb_submit_urb(ni_usb6008_tmp->urbIn, GFP_ATOMIC);
 	if (ret) {
@@ -220,10 +220,14 @@ static int ni_usb6008_submit_InURBs(struct ni_usb6008_struct *ni_usb6008_tmp)
 	return 0;
 }
 
+/******************************************************************************/
 /************************ MISCELLANEOUS FUNCTIONS *****************************/
+/******************************************************************************/
 
 
-/************************ DATA TRANSFER FUNCTIONS *****************************/
+/******************************************************************************/
+/****************************** COMMAND FUNCTIONS *****************************/
+/******************************************************************************/
 
 static int ni_usb6008_ai_cmdtest(struct comedi_device *dev,
 			     struct comedi_subdevice *s, struct comedi_cmd *cmd)
@@ -348,6 +352,20 @@ static int ni_usb6008_ai_cmd(struct comedi_device *dev, struct comedi_subdevice 
 
 	DPRINTK(KERN_INFO "comedi: ni_usb6008: %s\n", __func__);
 
+	/* debug command structure */
+	printk(KERN_INFO "comedi: command: chanlist_len %d\n", cmd->chanlist_len);
+	printk(KERN_INFO "comedi: command: data_len %d\n", cmd->data_len);
+	printk(KERN_INFO "comedi: command: start_src %d\n", cmd->start_src);
+	printk(KERN_INFO "comedi: command: start_arg %d\n", cmd->start_arg);
+	printk(KERN_INFO "comedi: command: scan_begin_src %d\n", cmd->scan_begin_src);
+	printk(KERN_INFO "comedi: command: scan_begin_arg %d\n", cmd->scan_begin_arg);
+	printk(KERN_INFO "comedi: command: convert_src %d\n", cmd->convert_src);
+	printk(KERN_INFO "comedi: command: convert_arg %d\n", cmd->convert_arg);
+	printk(KERN_INFO "comedi: command: scan_end_src %d\n", cmd->scan_end_src);
+	printk(KERN_INFO "comedi: command: scan_end_arg %d\n", cmd->scan_end_arg);
+	printk(KERN_INFO "comedi: command: stop_src %d\n", cmd->stop_src);
+	printk(KERN_INFO "comedi: command: stop_arg %d\n", cmd->stop_arg);
+
 	if (!ni_usb6008_tmp)
 		return -EFAULT;
 
@@ -355,6 +373,7 @@ static int ni_usb6008_ai_cmd(struct comedi_device *dev, struct comedi_subdevice 
 	down(&ni_usb6008_tmp->sem);
 
 	if (!(ni_usb6008_tmp->probed)) {
+		printk(KERN_ERR "comedi%d: ni_usb6008: ai_cmd not possible. device not probed.\n", minor);
 		up(&ni_usb6008_tmp->sem);
 		return -ENODEV;
 	}
@@ -363,6 +382,7 @@ static int ni_usb6008_ai_cmd(struct comedi_device *dev, struct comedi_subdevice 
 		up(&ni_usb6008_tmp->sem);
 		return -EBUSY;
 	}
+
 	/* set current channel of the running aquisition to zero */
 	s->async->cur_chan = 0;
 
@@ -378,6 +398,7 @@ static int ni_usb6008_ai_cmd(struct comedi_device *dev, struct comedi_subdevice 
 		up(&ni_usb6008_tmp->sem);
 		return -EINVAL;
 	}
+
 	ni_usb6008_tmp->ai_counter = ni_usb6008_tmp->ai_timer;
 
 	if (cmd->stop_src == TRIG_COUNT) {
@@ -396,7 +417,7 @@ static int ni_usb6008_ai_cmd(struct comedi_device *dev, struct comedi_subdevice 
 		ret = ni_usb6008_submit_InURBs(ni_usb6008_tmp);
 		if (ret < 0) {
 			ni_usb6008_tmp->ai_cmd_running = 0;
-			/* fixme: unlink here?? */
+			printk(KERN_ERR "comedi%d: ni_usb6008: return error from ni_usb6008_submit_InURBs!\n", minor);
 			up(&ni_usb6008_tmp->sem);
 			return ret;
 		}
@@ -417,6 +438,65 @@ static void ni_usb6008_ai_completion(struct urb *urb)
 	DPRINTK(KERN_INFO "comedi: ni_usb6008: %s\n", __func__);
 	printk(KERN_INFO "comedi: ni_usb6008: URB actual_length = %d\n", urb->actual_length);
 	printk(KERN_INFO "comedi: ni_usb6008: URB error_count = %d\n", urb->error_count);
+}
+
+static int ni_usb6008_ai_insn_read(struct comedi_device *dev,
+			       struct comedi_subdevice *s,
+			       struct comedi_insn *insn, unsigned int *data)
+{
+	//int i;
+	//unsigned int one = 0;
+	//int chan, range;
+	//int err;
+	struct ni_usb6008_struct *ni_usb6008_tmp = dev->private;
+
+	DPRINTK(KERN_INFO "comedi: ni_usb6008: %s\n", __func__);
+
+	if (!ni_usb6008_tmp)
+		return 0;
+
+	return 0;
+
+	// down(&ni_usb6008_tmp->sem);
+	// if (!(ni_usb6008_tmp->probed)) {
+		// up(&ni_usb6008_tmp->sem);
+		// return -ENODEV;
+	// }
+	// if (ni_usb6008_tmp->ai_cmd_running) {
+		// dev_err(&this_usbduxsub->interface->dev,
+			// "comedi%d: ai_insn_read not possible. "
+			// "Async Command is running.\n", dev->minor);
+		// up(&ni_usb6008_tmp->sem);
+		// return 0;
+	// }
+// 
+	// /* sample one channel */
+	// chan = CR_CHAN(insn->chanspec);
+	// range = CR_RANGE(insn->chanspec);
+	// /* set command for the first channel */
+	// this_usbduxsub->dux_commands[1] = create_adc_command(chan, range);
+// 
+	// /* adc commands */
+	// err = send_dux_commands(this_usbduxsub, SENDSINGLEAD);
+	// if (err < 0) {
+		// up(&this_usbduxsub->sem);
+		// return err;
+	// }
+// 
+	// for (i = 0; i < insn->n; i++) {
+		// err = receive_dux_commands(this_usbduxsub, SENDSINGLEAD);
+		// if (err < 0) {
+			// up(&this_usbduxsub->sem);
+			// return 0;
+		// }
+		// one = le16_to_cpu(this_usbduxsub->insnBuffer[1]);
+		// if (CR_RANGE(insn->chanspec) <= 1)
+			// one = one ^ 0x800;
+// 
+		// data[i] = one;
+	// }
+	// up(&ni_usb6008_tmp->sem);
+	// return i;
 }
 
 /******************************************************************************/
@@ -463,6 +543,7 @@ static int ni_usb6008_attach(struct comedi_device *comdev, struct comedi_devconf
 	s->len_chanlist = 8;
 	s->do_cmdtest = ni_usb6008_ai_cmdtest;
 	s->do_cmd = ni_usb6008_ai_cmd;
+	s->insn_read = ni_usb6008_ai_insn_read;
 	s->cancel = ni_usb6008_ai_cancel;
 	s->maxdata = 0xfff;
 	s->range_table = (&range_ni_usb6008_ai_range);
