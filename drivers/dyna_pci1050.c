@@ -2,6 +2,7 @@
 #include <linux/sched.h>
 #include "../comedidev.h"
 #include "comedi_pci.h"
+#include <linux/proc_fs.h>
 
 #undef DPRINTK
 #define DPRINTK(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -71,6 +72,8 @@ struct dyna_pci1050_private {
 	struct pci_dev *pcidev;	/*  ptr to PCI device */
 	char valid;		/*  card is usable */
 };
+
+unsigned long iobase0, iobase1, iobase2, iobase3, iobase4, iobase5;
 
 #define devpriv ((struct dyna_pci1050_private *)dev->private)
 #define thisboard ((const struct boardtype *)dev->board_ptr)
@@ -263,6 +266,47 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 	return 0;
 }
 
+static int dyna_pci1050_read_proc(char *page, char **start, off_t offset, int count, int *eof, void *data)
+{
+	unsigned short data16;
+	int counter = 0;
+	unsigned short *addr;
+
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	addr = ioremap(iobase0, 127);
+	if (!addr) {
+		printk(KERN_INFO "comedi: dyna_pci1050 : error mapping\n");
+	} else {
+		printk(KERN_INFO "comedi: dyna_pci1050 : mapping at %p\n", addr);
+	}
+	for (counter = 0; counter <= 10; counter++) {
+		data16 = ioread16(addr);
+		//printk(KERN_INFO "in data : %02x %02x", (data16 >> 8), (data16 & 0xFF));
+		printk(KERN_INFO "in data 0 : %x", data16);
+		schedule();
+	}
+	iounmap(addr);
+
+	for (counter = 0; counter <= 10; counter++) {
+		data16 = inw(iobase1);
+		printk(KERN_INFO "in data 1 : %x", data16);
+		schedule();
+	}
+	for (counter = 0; counter <= 10; counter++) {
+		data16 = inw(iobase2);
+		printk(KERN_INFO "in data 2 : %x", data16);
+		schedule();
+	}
+	for (counter = 0; counter <= 10; counter++) {
+		data16 = inw(iobase3);
+		printk(KERN_INFO "in data 3 : %x", data16);
+		schedule();
+	}
+	
+	return 0;
+}
+
 
 /************************* CONFIG FUNCTIONS ***********************************/
 
@@ -276,7 +320,6 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 {
 	struct comedi_subdevice *s;
 	int ret, subdev, n_subdevices;
-	unsigned long iobase0, iobase1, iobase2, iobase3, iobase4, iobase5;
 	struct pci_dev *pcidev;
 	int bus, slot;
 	unsigned char pci_bus, pci_slot, pci_func;
@@ -458,13 +501,16 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 		printk(KERN_INFO "comedi: dyna_pci1050 : pci_resource_flags : %d : %016lX\n", counter, pci_resource);
 	}
 
+	/* creating proc read entries */
+	create_proc_read_entry("dynalog", 0, NULL, dyna_pci1050_read_proc, NULL);
+
 	addr = ioremap(iobase0, 127);
 	if (!addr) {
 		printk(KERN_INFO "comedi: dyna_pci1050 : error mapping\n");
 	} else {
 		printk(KERN_INFO "comedi: dyna_pci1050 : mapping at %p\n", addr);
 	}
-	for (counter = 0; counter <= 1000; counter++) {
+	for (counter = 0; counter <= 10; counter++) {
 		data16 = ioread16(addr);
 		//printk(KERN_INFO "in data : %02x %02x", (data16 >> 8), (data16 & 0xFF));
 		printk(KERN_INFO "in data 0 : %x", data16);
@@ -472,17 +518,17 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 	}
 	iounmap(addr);
 
-	for (counter = 0; counter <= 1000; counter++) {
+	for (counter = 0; counter <= 10; counter++) {
 		data16 = inw(iobase1);
 		printk(KERN_INFO "in data 1 : %x", data16);
 		schedule();
 	}
-	for (counter = 0; counter <= 1000; counter++) {
+	for (counter = 0; counter <= 10; counter++) {
 		data16 = inw(iobase2);
 		printk(KERN_INFO "in data 2 : %x", data16);
 		schedule();
 	}
-	for (counter = 0; counter <= 1000; counter++) {
+	for (counter = 0; counter <= 10; counter++) {
 		data16 = inw(iobase3);
 		printk(KERN_INFO "in data 3 : %x", data16);
 		schedule();
@@ -496,6 +542,7 @@ static int dyna_pci1050_detach(struct comedi_device *dev)
 {
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	remove_proc_entry("dynalog", NULL);
 
 	if (dev->private) {
 		if (devpriv->valid) {
