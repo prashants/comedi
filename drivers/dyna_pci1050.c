@@ -108,21 +108,25 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 {
 	int err = 0;
 	int tmp;
-	unsigned int divisor1 = 0, divisor2 = 0;
 
-	DPRINTK("adv_pci1710 EDBG: BGN: pci171x_ai_cmdtest(...)\n");
-#ifdef PCI171X_EXTDEBUG
-	pci171x_cmdtest_out(-1, cmd);
-#endif
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	/* cmdtest tests a particular command to see if it is valid.
+	 * Using the cmdtest ioctl, a user can create a valid cmd
+	 * and then have it executes by the cmd ioctl.
+	 *
+	 * cmdtest returns 1,2,3,4 or 0, depending on which tests
+	 * the command passes. */
+
 	/* step 1: make sure trigger sources are trivially valid */
 
 	tmp = cmd->start_src;
-	cmd->start_src &= TRIG_NOW | TRIG_EXT;
+	cmd->start_src &= TRIG_NOW;
 	if (!cmd->start_src || tmp != cmd->start_src)
 		err++;
 
 	tmp = cmd->scan_begin_src;
-	cmd->scan_begin_src &= TRIG_FOLLOW;
+	cmd->scan_begin_src &= TRIG_TIMER | TRIG_EXT;
 	if (!cmd->scan_begin_src || tmp != cmd->scan_begin_src)
 		err++;
 
@@ -141,48 +145,23 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 	if (!cmd->stop_src || tmp != cmd->stop_src)
 		err++;
 
-	if (err) {
-#ifdef PCI171X_EXTDEBUG
-		pci171x_cmdtest_out(1, cmd);
-#endif
-		DPRINTK
-		    ("adv_pci1710 EDBG: BGN: pci171x_ai_cmdtest(...) err=%d ret=1\n",
-		     err);
+	if (err)
 		return 1;
-	}
 
-	/* step 2: make sure trigger sources are unique and mutually compatible */
+	/* step 2: make sure trigger sources are unique and mutually compatible
+     */
 
-	if (cmd->start_src != TRIG_NOW && cmd->start_src != TRIG_EXT) {
-		cmd->start_src = TRIG_NOW;
+	/* note that mutual compatibility is not an issue here */
+	if (cmd->scan_begin_src != TRIG_TIMER &&
+	    cmd->scan_begin_src != TRIG_EXT)
 		err++;
-	}
-
-	if (cmd->scan_begin_src != TRIG_FOLLOW) {
-		cmd->scan_begin_src = TRIG_FOLLOW;
-		err++;
-	}
-
 	if (cmd->convert_src != TRIG_TIMER && cmd->convert_src != TRIG_EXT)
 		err++;
-
-	if (cmd->scan_end_src != TRIG_COUNT) {
-		cmd->scan_end_src = TRIG_COUNT;
-		err++;
-	}
-
-	if (cmd->stop_src != TRIG_NONE && cmd->stop_src != TRIG_COUNT)
+	if (cmd->stop_src != TRIG_COUNT && cmd->stop_src != TRIG_NONE)
 		err++;
 
-	if (err) {
-#ifdef PCI171X_EXTDEBUG
-		pci171x_cmdtest_out(2, cmd);
-#endif
-		DPRINTK
-		    ("adv_pci1710 EDBG: BGN: pci171x_ai_cmdtest(...) err=%d ret=2\n",
-		     err);
+	if (err)
 		return 2;
-	}
 
 	/* step 3: make sure arguments are trivially compatible */
 
@@ -190,20 +169,41 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 		cmd->start_arg = 0;
 		err++;
 	}
+#define MAX_SPEED	10000	/* in nanoseconds */
+#define MIN_SPEED	1000000000	/* in nanoseconds */
 
-	if (cmd->scan_begin_arg != 0) {
-		cmd->scan_begin_arg = 0;
-		err++;
-	}
-
-	if (cmd->convert_src == TRIG_TIMER) {
-		if (cmd->convert_arg < thisboard->ai_ns_min) {
-			cmd->convert_arg = thisboard->ai_ns_min;
+	if (cmd->scan_begin_src == TRIG_TIMER) {
+		if (cmd->scan_begin_arg < MAX_SPEED) {
+			cmd->scan_begin_arg = MAX_SPEED;
 			err++;
 		}
-	} else {		/* TRIG_FOLLOW */
-		if (cmd->convert_arg != 0) {
-			cmd->convert_arg = 0;
+		if (cmd->scan_begin_arg > MIN_SPEED) {
+			cmd->scan_begin_arg = MIN_SPEED;
+			err++;
+		}
+	} else {
+		/* external trigger */
+		/* should be level/edge, hi/lo specification here */
+		/* should specify multiple external triggers */
+		if (cmd->scan_begin_arg > 9) {
+			cmd->scan_begin_arg = 9;
+			err++;
+		}
+	}
+	if (cmd->convert_src == TRIG_TIMER) {
+		if (cmd->convert_arg < MAX_SPEED) {
+			cmd->convert_arg = MAX_SPEED;
+			err++;
+		}
+		if (cmd->convert_arg > MIN_SPEED) {
+			cmd->convert_arg = MIN_SPEED;
+			err++;
+		}
+	} else {
+		/* external trigger */
+		/* see above */
+		if (cmd->convert_arg > 9) {
+			cmd->convert_arg = 9;
 			err++;
 		}
 	}
@@ -213,56 +213,49 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 		err++;
 	}
 	if (cmd->stop_src == TRIG_COUNT) {
-		if (!cmd->stop_arg) {
-			cmd->stop_arg = 1;
+		if (cmd->stop_arg > 0x00ffffff) {
+			cmd->stop_arg = 0x00ffffff;
 			err++;
 		}
-	} else {		/* TRIG_NONE */
+	} else {
+		/* TRIG_NONE */
 		if (cmd->stop_arg != 0) {
 			cmd->stop_arg = 0;
 			err++;
 		}
 	}
 
-	if (err) {
-#ifdef PCI171X_EXTDEBUG
-		pci171x_cmdtest_out(3, cmd);
-#endif
-		DPRINTK
-		    ("adv_pci1710 EDBG: BGN: pci171x_ai_cmdtest(...) err=%d ret=3\n",
-		     err);
+	if (err)
 		return 3;
-	}
 
 	/* step 4: fix up any arguments */
 
-	if (cmd->convert_src == TRIG_TIMER) {
-		tmp = cmd->convert_arg;
-		//i8253_cascade_ns_to_timer(devpriv->i8254_osc_base, &divisor1,
-		//			  &divisor2, &cmd->convert_arg,
-		//			  cmd->flags & TRIG_ROUND_MASK);
-		if (cmd->convert_arg < thisboard->ai_ns_min)
-			cmd->convert_arg = thisboard->ai_ns_min;
-		if (tmp != cmd->convert_arg)
+	if (cmd->scan_begin_src == TRIG_TIMER) {
+		tmp = cmd->scan_begin_arg;
+		skel_ns_to_timer(&cmd->scan_begin_arg,
+				 cmd->flags & TRIG_ROUND_MASK);
+		if (tmp != cmd->scan_begin_arg)
 			err++;
 	}
+	if (cmd->convert_src == TRIG_TIMER) {
+		tmp = cmd->convert_arg;
+		skel_ns_to_timer(&cmd->convert_arg,
+				 cmd->flags & TRIG_ROUND_MASK);
+		if (tmp != cmd->convert_arg)
+			err++;
+		if (cmd->scan_begin_src == TRIG_TIMER &&
+		    cmd->scan_begin_arg <
+		    cmd->convert_arg * cmd->scan_end_arg) {
+			cmd->scan_begin_arg =
+			    cmd->convert_arg * cmd->scan_end_arg;
+			err++;
+		}
+	}
 
-	if (err) {
-		printk
-		    ("adv_pci1710 EDBG: BGN: pci171x_ai_cmdtest(...) err=%d ret=4\n",
-		     err);
+	if (err)
 		return 4;
-	}
 
-	/* step 5: complain about special chanlist considerations */
-
-	if (cmd->chanlist) {
-		//if (!check_channel_list(dev, s, cmd->chanlist,
-		//			cmd->chanlist_len))
-			return 5;	/*  incorrect channels list */
-	}
-
-	printk("adv_pci1710 EDBG: BGN: pci171x_ai_cmdtest(...) ret=0\n");
+	printk(KERN_INFO "comedi: dyna_pci1050: %s passed \n", __func__);
 	return 0;
 }
 
@@ -286,24 +279,72 @@ static int dyna_pci1050_read_proc(char *page, char **start, off_t offset, int co
 		printk(KERN_INFO "in data 0 : %x", data16);
 		schedule();
 	}
+	data16 = 0x0000;
+	iowrite16(addr + 2, data16);
+	data16 = ioread16(addr);
+	printk(KERN_INFO "in data 0 0000 : %x", data16);
+	data16 = 0x0001;
+	iowrite16(addr + 2, data16);
+	data16 = ioread16(addr);
+	printk(KERN_INFO "in data 0 0001 : %x", data16);
+	data16 = 0x0100;
+	iowrite16(addr + 2, data16);
+	data16 = ioread16(addr);
+	printk(KERN_INFO "in data 0 0100 : %x", data16);
 	iounmap(addr);
 
+	data16 = 0x0000;
+	outw(iobase1 + 2, data16);
 	for (counter = 0; counter <= 10; counter++) {
 		data16 = inw(iobase1);
-		printk(KERN_INFO "in data 1 : %x", data16);
+		printk(KERN_INFO "in data 1 0000 : %x", data16);
 		schedule();
 	}
+	data16 = 0x0000;
+	outw(iobase2 + 2, data16);
 	for (counter = 0; counter <= 10; counter++) {
 		data16 = inw(iobase2);
-		printk(KERN_INFO "in data 2 : %x", data16);
+		printk(KERN_INFO "in data 2 0000 : %x", data16);
 		schedule();
 	}
+	data16 = 0x0000;
+	outw(iobase3 + 2, data16);
 	for (counter = 0; counter <= 10; counter++) {
 		data16 = inw(iobase3);
-		printk(KERN_INFO "in data 3 : %x", data16);
+		printk(KERN_INFO "in data 3 0000 : %x", data16);
 		schedule();
 	}
-	
+
+	data16 = 0x0001;
+	outw(iobase1 + 2, data16);
+	data16 = inw(iobase1);
+	printk(KERN_INFO "in data 1 0001 : %x", data16);
+
+	data16 = 0x0001;
+	outw(iobase2 + 2, data16);
+	data16 = inw(iobase2);
+	printk(KERN_INFO "in data 2 0001 : %x", data16);
+
+	data16 = 0x0001;
+	outw(iobase3 + 2, data16);
+	data16 = inw(iobase3);
+	printk(KERN_INFO "in data 3 0001 : %x", data16);
+
+	data16 = 0x0100;
+	outw(iobase1 + 2, data16);
+	data16 = inw(iobase1);
+	printk(KERN_INFO "in data 1 0100 : %x", data16);
+
+	data16 = 0x0100;
+	outw(iobase2 + 2, data16);
+	data16 = inw(iobase2);
+	printk(KERN_INFO "in data 2 0100 : %x", data16);
+
+	data16 = 0x0100;
+	outw(iobase3 + 2, data16);
+	data16 = inw(iobase3);
+	printk(KERN_INFO "in data 3 0100 : %x", data16);
+
 	return 0;
 }
 
