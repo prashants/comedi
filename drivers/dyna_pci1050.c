@@ -232,15 +232,15 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 
 	if (cmd->scan_begin_src == TRIG_TIMER) {
 		tmp = cmd->scan_begin_arg;
-		skel_ns_to_timer(&cmd->scan_begin_arg,
-				 cmd->flags & TRIG_ROUND_MASK);
+		//skel_ns_to_timer(&cmd->scan_begin_arg,
+		//		 cmd->flags & TRIG_ROUND_MASK);
 		if (tmp != cmd->scan_begin_arg)
 			err++;
 	}
 	if (cmd->convert_src == TRIG_TIMER) {
 		tmp = cmd->convert_arg;
-		skel_ns_to_timer(&cmd->convert_arg,
-				 cmd->flags & TRIG_ROUND_MASK);
+		//skel_ns_to_timer(&cmd->convert_arg,
+		//		 cmd->flags & TRIG_ROUND_MASK);
 		if (tmp != cmd->convert_arg)
 			err++;
 		if (cmd->scan_begin_src == TRIG_TIMER &&
@@ -279,18 +279,18 @@ static int dyna_pci1050_read_proc(char *page, char **start, off_t offset, int co
 		printk(KERN_INFO "in data 0 : %x", data16);
 		schedule();
 	}
-	data16 = 0x0000;
-	iowrite16(addr + 2, data16);
-	data16 = ioread16(addr);
-	printk(KERN_INFO "in data 0 0000 : %x", data16);
-	data16 = 0x0001;
-	iowrite16(addr + 2, data16);
-	data16 = ioread16(addr);
-	printk(KERN_INFO "in data 0 0001 : %x", data16);
-	data16 = 0x0100;
-	iowrite16(addr + 2, data16);
-	data16 = ioread16(addr);
-	printk(KERN_INFO "in data 0 0100 : %x", data16);
+	//data16 = 0x0000;
+	//iowrite16(addr, data16);
+	//data16 = ioread16(addr);
+	//printk(KERN_INFO "in data 0 0000 : %x", data16);
+	//data16 = 0x0001;
+	//iowrite16(addr + 2, data16);
+	//data16 = ioread16(addr);
+	//printk(KERN_INFO "in data 0 0001 : %x", data16);
+	//data16 = 0x0100;
+	//iowrite16(addr + 2, data16);
+	//data16 = ioread16(addr);
+	//printk(KERN_INFO "in data 0 0100 : %x", data16);
 	iounmap(addr);
 
 	data16 = 0x0000;
