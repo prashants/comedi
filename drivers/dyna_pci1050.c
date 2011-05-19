@@ -17,18 +17,25 @@ static int dyna_pci1050_read_proc(char *page, char **start, off_t
 offset, int count, int *eof, void *data)
 {
 	//unsigned short int data16;
-	u16 data16;
-	int counter = 0;
+	u16 data16, data16_le16;
+	unsigned int counter = 0;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
 	for (counter = 0; counter <= 15; counter++) {
-		mb(); smp_mb(); mdelay(100);
-		outw_p(0x0000 + counter, iobase2 + 2);
-		mb(); smp_mb(); mdelay(100);
-		data16 = inw_p(iobase2);
-		mb(); smp_mb(); mdelay(100);
-		printk(KERN_INFO "reading data iobase2 for channel %d : %d\n", counter, data16);
+		mb(); smp_mb(); mdelay(10);
+		//outw_p(0x0000 + counter, iobase2 + 2);
+		//outb_p(0x00, iobase2 + 3);
+		//outb_p(0x00 + counter, iobase2 + 2);
+		//outb_p(0x00, 0xc004);
+		outb_p(0x33 + counter, 0xc003);
+		mb(); smp_mb(); mdelay(10);
+
+		data16 = inw_p(0xc000);
+		data16 &= 0x0111;
+		data16_le16 = le16_to_cpu(data16);
+		mb(); smp_mb(); mdelay(10);
+		printk(KERN_INFO "reading data iobase3 for channel %2d : %d\n", counter, data16);
 	}
        return 0;
 }
