@@ -137,4 +137,4 @@ obj-$(CONFIG_COMEDI_8255)		+= 8255.o
 obj-$(CONFIG_COMEDI_DAS08)		+= das08.o
 obj-$(CONFIG_COMEDI_FC)			+= comedi_fc.o
 
-obj-$(CONFIG_COMEDI_FC)			+= ni_usb6008.o
+obj-$(CONFIG_COMEDI_FC)			+= dyna_pci1050.o
