@@ -23,10 +23,10 @@ offset, int count, int *eof, void *data)
 
 	for (counter = 0; counter <= 15; counter++) {
 		mb(); smp_mb(); mdelay(10);
-		outw_p(0x0000 + counter, iobase2 + 2);
+		outw_p(0x0030 + counter, iobase2 + 2);
 		mb(); smp_mb(); mdelay(10);
 		data16 = inw_p(iobase2);
-		data16 &= 0x0111;
+		//data16 &= 0x0111;
 		mb(); smp_mb(); mdelay(10);
 		printk(KERN_INFO "reading data iobase2 for channel %2d : %4d %04X\n", counter, data16, data16);
 	}
