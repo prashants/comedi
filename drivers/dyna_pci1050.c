@@ -1,143 +1,235 @@
-#include <linux/interrupt.h>
-#include <linux/sched.h>
-#include <linux/proc_fs.h>
-#include <linux/pci.h>
-#include <linux/delay.h>
-#include <asm/io.h>
+#include "../comedidev.h"
+#include "comedi_pci.h"
+
+// adlpci6802 + skel
 
 #define PCI_VENDOR_ID_DYNALOG           0x10b5
 #define PCI_DEVICE_ID_DYNALOG_PCI_1050  0x1050
 #define DRV_NAME                        "dyna_pci1050"
 
-unsigned long iobase0, iobase1, iobase2, iobase3, iobase4, iobase5;
-unsigned long iosize0, iosize1, iosize2, iosize3, iosize4, iosize5;
+#define PCI1050_AREAD	 	0	/* ANALOG READ */
+#define PCI1050_AWRITE	 	0	/* ANALOG WRITE */
+#define PCI1050_ACONTROL	2	/* ANALOG CONTROL */
+
+static DEFINE_PCI_DEVICE_TABLE(dyna_pci1050_pci_table) = {
+	{PCI_VENDOR_ID_DYNALOG, PCI_DEVICE_ID_DYNALOG_PCI_1050, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+	{0}
+};
+
+MODULE_DEVICE_TABLE(pci, dyna_pci1050_pci_table);
+
+static int dyna_pci1050_attach(struct comedi_device *dev,
+			  struct comedi_devconfig *it);
+static int dyna_pci1050_detach(struct comedi_device *dev);
+
+static const struct comedi_lrange range_pci1050_ai = { 3, {
+							  BIP_RANGE(10),
+							  BIP_RANGE(5),
+							  UNI_RANGE(10)
+							  }
+};
+
+struct boardtype {
+	const char *name;
+	int device_id;
+	int ai_chans;
+	int ai_bits;
+};
+
+static const struct boardtype boardtypes[] = {
+	{
+	.name = "pci1050",
+	.device_id = PCI_DEVICE_ID_DYNALOG_PCI_1050,
+	.ai_chans = 16,
+	.ai_bits = 12,
+	},
+};
+
+#define n_boardtypes (sizeof(boardtypes)/sizeof(struct boardtype))
+
+static struct comedi_driver dyna_pci1050_driver = {
+	.driver_name = DRV_NAME,
+	.module = THIS_MODULE,
+	.attach = dyna_pci1050_attach,
+	.detach = dyna_pci1050_detach,
+	.num_names = n_boardtypes,
+	.board_name = &boardtypes[0].name,
+	.offset = sizeof(struct boardtype),
+};
+
+struct dyna_pci1050_private {
+	struct pci_dev *pci_dev;	/*  ptr to PCI device */
+	char valid;			/*  card is usable */
+	int data;
+};
+
+#define devpriv ((struct dyna_pci1050_private *)dev->private)
+#define thisboard ((const struct boardtype *)dev->board_ptr)
 
 
-static int dyna_pci1050_read_proc(char *page, char **start, off_t
-offset, int count, int *eof, void *data)
+/******************************************************************************/
+/*********************** INITIALIZATION FUNCTIONS *****************************/
+/******************************************************************************/
+
+static int dyna_pci1050_find_device(struct comedi_device *dev, int bus, int slot)
 {
-	u16 data16;
-	unsigned int counter = 0;
+	struct pci_dev *pci_dev;
+	int i;
+
+	for (pci_dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, NULL);
+	     pci_dev != NULL;
+	     pci_dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pci_dev)) {
+		if (pci_dev->vendor == PCI_VENDOR_ID_DYNALOG) {
+			for (i = 0; i < n_boardtypes; i++) {
+				if (boardtypes[i].device_id ==
+					pci_dev->device) {
+					/*
+					 * was a particular bus/slot requested?
+					*/
+					if ((bus != 0) || (slot != 0)) {
+						/*
+						 * are we on the
+						 * wrong bus/slot?
+						*/
+						if (pci_dev->bus->number
+						    != bus ||
+						    PCI_SLOT(pci_dev->devfn)
+						    != slot) {
+							continue;
+						}
+					}
+					dev->board_ptr = boardtypes + i;
+					goto found;
+				}
+			}
+		}
+	}
+
+	printk(KERN_ERR "comedi%d: no supported board found! "
+			"(req. bus/slot : %d/%d)\n",
+			dev->minor, bus, slot);
+	return -EIO;
+
+found:
+	printk("comedi%d: found %s (b:s:f=%d:%d:%d) , irq=%d\n",
+	       dev->minor,
+	       boardtypes[i].name,
+	       pci_dev->bus->number,
+	       PCI_SLOT(pci_dev->devfn),
+	       PCI_FUNC(pci_dev->devfn), pci_dev->irq);
+
+		devpriv->pci_dev = pci_dev;
+
+	return 0;
+}
+
+static int
+dyna_pci1050_pci_setup(struct pci_dev *pci_dev, unsigned long *io_base_ptr,
+		  int dev_minor)
+{
+	unsigned long io_base, io_range, lcr_io_base, lcr_io_range;
+
+	/*  Enable PCI device and request regions */
+	if (comedi_pci_enable(pci_dev, PCI6208_DRIVER_NAME) < 0) {
+		printk(KERN_ERR "comedi%d: Failed to enable PCI device "
+			"and request regions\n",
+			dev_minor);
+		return -EIO;
+	}
+	/* Read local configuration register
+	 * base address [PCI_BASE_ADDRESS #1].
+	 */
+	lcr_io_base = pci_resource_start(pci_dev, 1);
+	lcr_io_range = pci_resource_len(pci_dev, 1);
+
+	printk(KERN_INFO "comedi%d: local config registers at address"
+			" 0x%4lx [0x%4lx]\n",
+			dev_minor, lcr_io_base, lcr_io_range);
+
+	/*  Read PCI6208 register base address [PCI_BASE_ADDRESS #2]. */
+	io_base = pci_resource_start(pci_dev, 2);
+	io_range = pci_resource_end(pci_dev, 2) - io_base + 1;
+
+	printk("comedi%d: 6208 registers at address 0x%4lx [0x%4lx]\n",
+	       dev_minor, io_base, io_range);
+
+	*io_base_ptr = io_base;
+
+	return 0;
+}
+
+static int dyna_pci1050_attach(struct comedi_device *dev,
+			  struct comedi_devconfig *it)
+{
+	struct comedi_subdevice *s;
+	int ret, subdev, n_subdevices;
+	unsigned int irq;
+	unsigned long iobase;
+	struct pci_dev *pcidev;
+	int opt_bus, opt_slot;
+	const char *errstr;
+	unsigned char pci_bus, pci_slot, pci_func;
+	int i;
+	int board_index;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
-	for (counter = 0; counter <= 15; counter++) {
-		mb(); smp_mb(); mdelay(10);
-		outw_p(0x0000 + counter, iobase2 + 2);
-		mb(); smp_mb(); mdelay(10);
-		data16 = inw_p(iobase2);
-		data16 &= 0x0111;
-		mb(); smp_mb(); mdelay(10);
-		printk(KERN_INFO "reading data iobase2 for channel %2d : %4d %04X\n", counter, data16, data16);
+	printk("comedi%d: dyna_pci1050: ", dev->minor);
+
+	ret = alloc_private(dev, sizeof(struct dyna_pci1050_private));
+	if (retval < 0)
+		return retval;
+
+	retval = dyna_pci1050_find_device(dev, it->options[0], it->options[1]);
+	if (retval < 0)
+		return retval;
+
+	retval = pci6208_pci_setup(devpriv->pci_dev, &io_base, dev->minor);
+	if (retval < 0)
+		return retval;
+
+	dev->iobase = io_base;
+	dev->board_name = thisboard->name;
+
+	/*
+	 * Allocate the subdevice structures.  alloc_subdevice() is a
+	 * convenient macro defined in comedidev.h.
+	 */
+	if (alloc_subdevices(dev, 1) < 0)
+		return -ENOMEM;
+
+	s = dev->subdevices + 0;
+	/* analog output subdevice */
+	s->type = COMEDI_SUBD_AO;
+	s->subdev_flags = SDF_WRITABLE;	/* anything else to add here?? */
+	s->n_chan = thisboard->ao_chans;
+	s->maxdata = 0xffff;	/* 16-bit DAC */
+	s->range_table = &range_bipolar10;	/* this needs to be checked. */
+	s->insn_write = pci6208_ao_winsn;
+	s->insn_read = pci6208_ao_rinsn;
+
+	printk(KERN_INFO "attached\n");
+
+	return 1;
+}
+
+static int dyna_pci1050_detach(struct comedi_device *dev)
+{
+	if (dev->private) {
+		if (devpriv->valid)
+			dyna_pci1050_reset(dev);
+		if (devpriv->pcidev) {
+			if (dev->iobase)
+				comedi_pci_disable(devpriv->pcidev);
+
+			pci_dev_put(devpriv->pcidev);
+		}
 	}
 
-       return 0;
+	return 0;
 }
 
-/************************* CONFIG FUNCTIONS ***********************************/
-
-static int dyna_pci1050_probe(struct pci_dev *dev, const struct
-pci_device_id *id)
-{
-       int counter = 0;
-       unsigned long pci_resource;
-	int ret;
-
-       printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
-
-	ret = pci_enable_device(dev);
-	printk(KERN_INFO "comedi: dyna_pci1050: pci_enable_device %d\n", ret);
-	
-
-       /* deivce related information */
-       printk(KERN_ERR "comedi: dyna_pci1050: bus number %d\n", dev->bus->number);
-       printk(KERN_ERR "comedi: dyna_pci1050: device id %x\n", dev->device);
-       printk(KERN_ERR "comedi: dyna_pci1050: vendor id %x\n", dev->vendor);
-       printk(KERN_ERR "comedi: dyna_pci1050: slot number %d\n", PCI_SLOT(dev->devfn));
-       printk(KERN_ERR "comedi: dyna_pci1050: function number %d\n", PCI_FUNC(dev->devfn));
-
-       for (counter = 0; counter < 6; counter++) {
-               pci_resource = pci_resource_start(dev, counter);
-               printk(KERN_INFO "comedi: dyna_pci1050 : pci_resource_start : %d : %08lX\n", counter, pci_resource);
-               pci_resource = pci_resource_end(dev, counter);
-               printk(KERN_INFO "comedi: dyna_pci1050 : pci_resource_end : %d : %08lX\n", counter, pci_resource);
-               pci_resource = pci_resource_flags(dev, counter);
-               printk(KERN_INFO "comedi: dyna_pci1050 : pci_resource_flags : %d : %08lX\n", counter, pci_resource);
-       }
-
-       iobase0 = pci_resource_start(dev, 0);
-       iobase1 = pci_resource_start(dev, 1);
-       iobase2 = pci_resource_start(dev, 2);
-       iobase3 = pci_resource_start(dev, 3);
-       iobase4 = pci_resource_start(dev, 4);
-       iobase5 = pci_resource_start(dev, 5);
-
-	iosize1 = pci_resource_len(dev, 1);
-	iosize2 = pci_resource_len(dev, 2);
-	iosize3 = pci_resource_len(dev, 3);
-
-       printk(KERN_INFO "comedi: dyna_pci1050: iobase 0x%4lx : 0x%4lx : 0x%4lx : 0x%4lx : 0x%4lx : 0x%4lx\n",
-               iobase0, iobase1, iobase2, iobase3, iobase4, iobase5);
-
-       if (request_region(iobase1, iosize1, DRV_NAME))
-               printk(KERN_INFO "comedi: dyna_pci1050: acquired iobase1 0x%4lx\n", iobase1);
-       else
-               printk(KERN_INFO "comedi: dyna_pci1050: failed acquiring iobase1 0x%4lx\n", iobase1);
-
-       if (request_region(iobase2, iosize2, DRV_NAME))
-               printk(KERN_INFO "comedi: dyna_pci1050: acquired iobase2 0x%4lx\n", iobase2);
-       else
-               printk(KERN_INFO "comedi: dyna_pci1050: failed acquiring iobase2 0x%4lx\n", iobase2);
-
-       if (request_region(iobase3, iosize3, DRV_NAME))
-               printk(KERN_INFO "comedi: dyna_pci1050: acquired iobase3 0x%4lx\n", iobase3);
-       else
-               printk(KERN_INFO "comedi: dyna_pci1050: failed acquiring iobase3 0x%4lx\n", iobase3);
-
-       create_proc_read_entry("dynalog", 0, NULL, dyna_pci1050_read_proc, NULL);
-       return 0;
-}
-
-static void dyna_pci1050_remove(struct pci_dev *dev)
-{
-       printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
-
-       release_region(iobase1, iosize1);
-       release_region(iobase2, iosize2);
-       release_region(iobase3, iosize3);
-
-       remove_proc_entry("dynalog", NULL);
-}
-
-static struct pci_device_id ids[] = {
-       { PCI_DEVICE(PCI_VENDOR_ID_DYNALOG, PCI_DEVICE_ID_DYNALOG_PCI_1050) },
-       { 0, },
-};
-
-struct pci_driver dyna_pci1050_driver = {
-       .name           = DRV_NAME,
-       .probe          = dyna_pci1050_probe,
-       .remove         = dyna_pci1050_remove,
-       .id_table       = ids,
-};
-
-MODULE_DEVICE_TABLE(pci, dyna_pci1050_driver);
-
-static int __init dyna_pci1050_init(void)
-{
-       printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
-       pci_register_driver(&dyna_pci1050_driver);
-       return 0;
-}
-
-static void __exit dyna_pci1050_exit(void)
-{
-       printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
-       pci_unregister_driver(&dyna_pci1050_driver);
-}
-
-module_init(dyna_pci1050_init);
-module_exit(dyna_pci1050_exit);
+COMEDI_PCI_INITCLEANUP(dyna_pci1050_driver, dyna_pci1050_pci_table);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Prashant Shah");
