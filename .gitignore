@@ -8,3 +8,11 @@ kcomedilib/*.o
 kcomedilib/*.o
 kcomedilib/*.mod.c
 kcomedilib/*.cmd
+.tmp_versions/
+Module.symvers
+comedi.ko
+comedi.mod.c
+drivers/modules.order
+kcomedilib/kcomedilib.ko
+kcomedilib/modules.order
+modules.order
