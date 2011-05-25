@@ -1,8 +1,6 @@
 #include "../comedidev.h"
 #include "comedi_pci.h"
 
-// adlpci6802 + skel
-
 #define PCI_VENDOR_ID_DYNALOG           0x10b5
 #define PCI_DEVICE_ID_DYNALOG_PCI_1050  0x1050
 #define DRV_NAME                        "dyna_pci1050"
@@ -45,16 +43,14 @@ static const struct boardtype boardtypes[] = {
 	},
 };
 
-#define n_boardtypes (sizeof(boardtypes)/sizeof(struct boardtype))
-
 static struct comedi_driver dyna_pci1050_driver = {
 	.driver_name = DRV_NAME,
 	.module = THIS_MODULE,
 	.attach = dyna_pci1050_attach,
 	.detach = dyna_pci1050_detach,
-	.num_names = n_boardtypes,
 	.board_name = &boardtypes[0].name,
 	.offset = sizeof(struct boardtype),
+	.num_names = ARRAY_SIZE(boardtypes),
 };
 
 struct dyna_pci1050_private {
@@ -63,168 +59,274 @@ struct dyna_pci1050_private {
 	int data;
 };
 
-#define devpriv ((struct dyna_pci1050_private *)dev->private)
 #define thisboard ((const struct boardtype *)dev->board_ptr)
+#define devpriv ((struct dyna_pci1050_private *)dev->private)
 
 
 /******************************************************************************/
 /*********************** INITIALIZATION FUNCTIONS *****************************/
 /******************************************************************************/
 
-static int dyna_pci1050_find_device(struct comedi_device *dev, int bus, int slot)
+static int dyna_pci1050_ai_rinsn(struct comedi_device *dev, struct comedi_subdevice *s,
+			 struct comedi_insn *insn, unsigned int *data)
 {
-	struct pci_dev *pci_dev;
-	int i;
+	int n, i;
+	unsigned int d;
+	unsigned int status;
 
-	for (pci_dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, NULL);
-	     pci_dev != NULL;
-	     pci_dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pci_dev)) {
-		if (pci_dev->vendor == PCI_VENDOR_ID_DYNALOG) {
-			for (i = 0; i < n_boardtypes; i++) {
-				if (boardtypes[i].device_id ==
-					pci_dev->device) {
-					/*
-					 * was a particular bus/slot requested?
-					*/
-					if ((bus != 0) || (slot != 0)) {
-						/*
-						 * are we on the
-						 * wrong bus/slot?
-						*/
-						if (pci_dev->bus->number
-						    != bus ||
-						    PCI_SLOT(pci_dev->devfn)
-						    != slot) {
-							continue;
-						}
-					}
-					dev->board_ptr = boardtypes + i;
-					goto found;
-				}
-			}
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	/* a typical programming sequence */
+
+	/* write channel to multiplexer */
+	/* outw(chan,dev->iobase + SKEL_MUX); */
+
+	/* don't wait for mux to settle */
+
+	/* convert n samples */
+	for (n = 0; n < insn->n; n++) {
+		/* trigger conversion */
+		/* outw(0,dev->iobase + SKEL_CONVERT); */
+
+#define TIMEOUT 100
+		/* wait for conversion to end */
+		for (i = 0; i < TIMEOUT; i++) {
+			status = 1;
+			/* status = inb(dev->iobase + SKEL_STATUS); */
+			if (status)
+				break;
+		}
+		if (i == TIMEOUT) {
+			/* printk() should be used instead of printk()
+			 * whenever the code can be called from real-time. */
+			pr_info("timeout\n");
+			return -ETIMEDOUT;
+		}
+
+		/* read data */
+		/* d = inw(dev->iobase + SKEL_AI_DATA); */
+		d = 0;
+
+		/* mangle the data as necessary */
+		d ^= 1 << (thisboard->ai_bits - 1);
+
+		data[n] = d;
+	}
+
+	/* return the number of samples read/written */
+	return n;
+}
+
+static int dyna_pci1050_ns_to_timer(unsigned int *ns, int round)
+{
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	return *ns;
+}
+
+static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
+			   struct comedi_subdevice *s, struct comedi_cmd *cmd)
+{
+	int err = 0;
+	int tmp;
+
+	/* cmdtest tests a particular command to see if it is valid.
+	 * Using the cmdtest ioctl, a user can create a valid cmd
+	 * and then have it executes by the cmd ioctl.
+	 *
+	 * cmdtest returns 1,2,3,4 or 0, depending on which tests
+	 * the command passes. */
+
+	/* step 1: make sure trigger sources are trivially valid */
+
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	tmp = cmd->start_src;
+	cmd->start_src &= TRIG_NOW;
+	if (!cmd->start_src || tmp != cmd->start_src)
+		err++;
+
+	tmp = cmd->scan_begin_src;
+	cmd->scan_begin_src &= TRIG_TIMER | TRIG_EXT;
+	if (!cmd->scan_begin_src || tmp != cmd->scan_begin_src)
+		err++;
+
+	tmp = cmd->convert_src;
+	cmd->convert_src &= TRIG_TIMER | TRIG_EXT;
+	if (!cmd->convert_src || tmp != cmd->convert_src)
+		err++;
+
+	tmp = cmd->scan_end_src;
+	cmd->scan_end_src &= TRIG_COUNT;
+	if (!cmd->scan_end_src || tmp != cmd->scan_end_src)
+		err++;
+
+	tmp = cmd->stop_src;
+	cmd->stop_src &= TRIG_COUNT | TRIG_NONE;
+	if (!cmd->stop_src || tmp != cmd->stop_src)
+		err++;
+
+	if (err)
+		return 1;
+
+	/* step 2: make sure trigger sources are unique and mutually compatible
+     */
+
+	/* note that mutual compatibility is not an issue here */
+	if (cmd->scan_begin_src != TRIG_TIMER &&
+	    cmd->scan_begin_src != TRIG_EXT)
+		err++;
+	if (cmd->convert_src != TRIG_TIMER && cmd->convert_src != TRIG_EXT)
+		err++;
+	if (cmd->stop_src != TRIG_COUNT && cmd->stop_src != TRIG_NONE)
+		err++;
+
+	if (err)
+		return 2;
+
+	/* step 3: make sure arguments are trivially compatible */
+
+	if (cmd->start_arg != 0) {
+		cmd->start_arg = 0;
+		err++;
+	}
+#define MAX_SPEED	10000	/* in nanoseconds */
+#define MIN_SPEED	1000000000	/* in nanoseconds */
+
+	if (cmd->scan_begin_src == TRIG_TIMER) {
+		if (cmd->scan_begin_arg < MAX_SPEED) {
+			cmd->scan_begin_arg = MAX_SPEED;
+			err++;
+		}
+		if (cmd->scan_begin_arg > MIN_SPEED) {
+			cmd->scan_begin_arg = MIN_SPEED;
+			err++;
+		}
+	} else {
+		/* external trigger */
+		/* should be level/edge, hi/lo specification here */
+		/* should specify multiple external triggers */
+		if (cmd->scan_begin_arg > 9) {
+			cmd->scan_begin_arg = 9;
+			err++;
+		}
+	}
+	if (cmd->convert_src == TRIG_TIMER) {
+		if (cmd->convert_arg < MAX_SPEED) {
+			cmd->convert_arg = MAX_SPEED;
+			err++;
+		}
+		if (cmd->convert_arg > MIN_SPEED) {
+			cmd->convert_arg = MIN_SPEED;
+			err++;
+		}
+	} else {
+		/* external trigger */
+		/* see above */
+		if (cmd->convert_arg > 9) {
+			cmd->convert_arg = 9;
+			err++;
 		}
 	}
 
-	printk(KERN_ERR "comedi%d: no supported board found! "
-			"(req. bus/slot : %d/%d)\n",
-			dev->minor, bus, slot);
-	return -EIO;
-
-found:
-	printk("comedi%d: found %s (b:s:f=%d:%d:%d) , irq=%d\n",
-	       dev->minor,
-	       boardtypes[i].name,
-	       pci_dev->bus->number,
-	       PCI_SLOT(pci_dev->devfn),
-	       PCI_FUNC(pci_dev->devfn), pci_dev->irq);
-
-		devpriv->pci_dev = pci_dev;
-
-	return 0;
-}
-
-static int
-dyna_pci1050_pci_setup(struct pci_dev *pci_dev, unsigned long *io_base_ptr,
-		  int dev_minor)
-{
-	unsigned long io_base, io_range, lcr_io_base, lcr_io_range;
-
-	/*  Enable PCI device and request regions */
-	if (comedi_pci_enable(pci_dev, PCI6208_DRIVER_NAME) < 0) {
-		printk(KERN_ERR "comedi%d: Failed to enable PCI device "
-			"and request regions\n",
-			dev_minor);
-		return -EIO;
+	if (cmd->scan_end_arg != cmd->chanlist_len) {
+		cmd->scan_end_arg = cmd->chanlist_len;
+		err++;
 	}
-	/* Read local configuration register
-	 * base address [PCI_BASE_ADDRESS #1].
-	 */
-	lcr_io_base = pci_resource_start(pci_dev, 1);
-	lcr_io_range = pci_resource_len(pci_dev, 1);
+	if (cmd->stop_src == TRIG_COUNT) {
+		if (cmd->stop_arg > 0x00ffffff) {
+			cmd->stop_arg = 0x00ffffff;
+			err++;
+		}
+	} else {
+		/* TRIG_NONE */
+		if (cmd->stop_arg != 0) {
+			cmd->stop_arg = 0;
+			err++;
+		}
+	}
 
-	printk(KERN_INFO "comedi%d: local config registers at address"
-			" 0x%4lx [0x%4lx]\n",
-			dev_minor, lcr_io_base, lcr_io_range);
+	if (err)
+		return 3;
 
-	/*  Read PCI6208 register base address [PCI_BASE_ADDRESS #2]. */
-	io_base = pci_resource_start(pci_dev, 2);
-	io_range = pci_resource_end(pci_dev, 2) - io_base + 1;
+	/* step 4: fix up any arguments */
 
-	printk("comedi%d: 6208 registers at address 0x%4lx [0x%4lx]\n",
-	       dev_minor, io_base, io_range);
+	if (cmd->scan_begin_src == TRIG_TIMER) {
+		tmp = cmd->scan_begin_arg;
+		dyna_pci1050_ns_to_timer(&cmd->scan_begin_arg,
+				 cmd->flags & TRIG_ROUND_MASK);
+		if (tmp != cmd->scan_begin_arg)
+			err++;
+	}
+	if (cmd->convert_src == TRIG_TIMER) {
+		tmp = cmd->convert_arg;
+		dyna_pci1050_ns_to_timer(&cmd->convert_arg,
+				 cmd->flags & TRIG_ROUND_MASK);
+		if (tmp != cmd->convert_arg)
+			err++;
+		if (cmd->scan_begin_src == TRIG_TIMER &&
+		    cmd->scan_begin_arg <
+		    cmd->convert_arg * cmd->scan_end_arg) {
+			cmd->scan_begin_arg =
+			    cmd->convert_arg * cmd->scan_end_arg;
+			err++;
+		}
+	}
 
-	*io_base_ptr = io_base;
+	if (err)
+		return 4;
 
 	return 0;
 }
+
+static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
+{
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	return -1;
+}
+
+/******************************************************************************/
+/*********************** INITIALIZATION FUNCTIONS *****************************/
+/******************************************************************************/
 
 static int dyna_pci1050_attach(struct comedi_device *dev,
 			  struct comedi_devconfig *it)
 {
 	struct comedi_subdevice *s;
-	int ret, subdev, n_subdevices;
-	unsigned int irq;
-	unsigned long iobase;
-	struct pci_dev *pcidev;
-	int opt_bus, opt_slot;
-	const char *errstr;
-	unsigned char pci_bus, pci_slot, pci_func;
-	int i;
-	int board_index;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
-	printk("comedi%d: dyna_pci1050: ", dev->minor);
+	printk(KERN_INFO "comedi: dyna_pci1050: minor number %d\n", dev->minor);
 
-	ret = alloc_private(dev, sizeof(struct dyna_pci1050_private));
-	if (retval < 0)
-		return retval;
-
-	retval = dyna_pci1050_find_device(dev, it->options[0], it->options[1]);
-	if (retval < 0)
-		return retval;
-
-	retval = pci6208_pci_setup(devpriv->pci_dev, &io_base, dev->minor);
-	if (retval < 0)
-		return retval;
-
-	dev->iobase = io_base;
 	dev->board_name = thisboard->name;
 
-	/*
-	 * Allocate the subdevice structures.  alloc_subdevice() is a
-	 * convenient macro defined in comedidev.h.
-	 */
+	if (alloc_private(dev, sizeof(struct dyna_pci1050_private)) < 0)
+		return -ENOMEM;
+
 	if (alloc_subdevices(dev, 1) < 0)
 		return -ENOMEM;
 
 	s = dev->subdevices + 0;
-	/* analog output subdevice */
-	s->type = COMEDI_SUBD_AO;
-	s->subdev_flags = SDF_WRITABLE;	/* anything else to add here?? */
-	s->n_chan = thisboard->ao_chans;
-	s->maxdata = 0xffff;	/* 16-bit DAC */
-	s->range_table = &range_bipolar10;	/* this needs to be checked. */
-	s->insn_write = pci6208_ao_winsn;
-	s->insn_read = pci6208_ao_rinsn;
+	s->type = COMEDI_SUBD_AI;
+	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_DIFF;
+	s->n_chan = thisboard->ai_chans;
+	s->maxdata = (1 << thisboard->ai_bits) - 1;
+	s->range_table = &range_pci1050_ai;
+	s->len_chanlist = 16;
+	s->insn_read = dyna_pci1050_ai_rinsn;
+	s->subdev_flags |= SDF_CMD_READ;
+	s->do_cmd = dyna_pci1050_ai_cmd;
+	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
 
-	printk(KERN_INFO "attached\n");
+	printk(KERN_INFO "comedi: dyna_pci1050: attached\n");
 
 	return 1;
 }
 
 static int dyna_pci1050_detach(struct comedi_device *dev)
 {
-	if (dev->private) {
-		if (devpriv->valid)
-			dyna_pci1050_reset(dev);
-		if (devpriv->pcidev) {
-			if (dev->iobase)
-				comedi_pci_disable(devpriv->pcidev);
-
-			pci_dev_put(devpriv->pcidev);
-		}
-	}
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
 	return 0;
 }
