@@ -81,12 +81,14 @@ static int dyna_pci1050_ai_rinsn(struct comedi_device *dev, struct comedi_subdev
 {
 	int n;
 	u16 d;
-	unsigned int chan;
+	unsigned int chan, range;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
 	/* get the channel number */
 	chan = CR_CHAN(insn->chanspec);
+	range = CR_RANGE(insn->chanspec);
+	printk("range : %d\n", range);
 
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
@@ -96,6 +98,7 @@ static int dyna_pci1050_ai_rinsn(struct comedi_device *dev, struct comedi_subdev
 		mb(); smp_mb(); udelay(100);
 		/* read data */
 		d = inw_p(devpriv->BADR2);
+		/* mask the first 4 bits - EOC bits */
 		d &= 0x0FFF;
 		data[n] = d;
 	}
@@ -156,8 +159,7 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 	if (err)
 		return 1;
 
-	/* step 2: make sure trigger sources are unique and mutually compatible
-     */
+	/* step 2: make sure trigger sources are unique and mutually compatible */
 
 	/* note that mutual compatibility is not an issue here */
 	if (cmd->scan_begin_src != TRIG_TIMER &&
@@ -268,9 +270,11 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 
 static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 {
+	struct comedi_cmd *cmd = &s->async->cmd;
+
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
-	return -1;
+	return 0;
 }
 
 /******************************************************************************/
@@ -332,7 +336,7 @@ found:
 	s->type = COMEDI_SUBD_AI;
 	s->subdev_flags = SDF_READABLE | SDF_GROUND;
 	s->n_chan = thisboard->ai_chans;
-	s->maxdata = (1 << thisboard->ai_bits) - 1;
+	s->maxdata = 0x8FFF;
 	s->range_table = &range_pci1050_ai;
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_ai_rinsn;
