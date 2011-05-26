@@ -22,7 +22,7 @@ clean:
 		rm -rf ./kcomedilib/*.o ./kcomedilib/*.ko ./kcomedilib/*.mod.c ./kcomedilib/.*.cmd
 
 copy:
-	sudo cp drivers/ni_usb6008.ko /lib/modules/$(shell uname -r)/kernel/drivers/staging/comedi/drivers/ni_usb6008.ko
+	sudo cp drivers/dyna_pci1050.ko /lib/modules/$(shell uname -r)/kernel/drivers/staging/comedi/drivers/dyna_pci1050.ko
 	sudo depmod -a
 
 remove:

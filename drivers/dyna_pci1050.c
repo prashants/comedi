@@ -36,7 +36,7 @@ struct boardtype {
 
 static const struct boardtype boardtypes[] = {
 	{
-	.name = "pci1050",
+	.name = "dyna_pci1050",
 	.device_id = PCI_DEVICE_ID_DYNALOG_PCI_1050,
 	.ai_chans = 16,
 	.ai_bits = 12,
@@ -57,6 +57,15 @@ struct dyna_pci1050_private {
 	struct pci_dev *pci_dev;	/*  ptr to PCI device */
 	char valid;			/*  card is usable */
 	int data;
+	unsigned int ai_n_chan;
+	unsigned int *ai_chanlist;
+	unsigned int ai_flags;
+	unsigned int ai_data_len;
+	short *ai_data;
+
+	/* device information */
+	unsigned long BADR0, BADR1, BADR2;
+	unsigned long BADR0_SIZE, BADR1_SIZE, BADR2_SIZE;
 };
 
 #define thisboard ((const struct boardtype *)dev->board_ptr)
@@ -70,46 +79,24 @@ struct dyna_pci1050_private {
 static int dyna_pci1050_ai_rinsn(struct comedi_device *dev, struct comedi_subdevice *s,
 			 struct comedi_insn *insn, unsigned int *data)
 {
-	int n, i;
-	unsigned int d;
-	unsigned int status;
+	int n;
+	u16 d;
+	unsigned int chan;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
-	/* a typical programming sequence */
-
-	/* write channel to multiplexer */
-	/* outw(chan,dev->iobase + SKEL_MUX); */
-
-	/* don't wait for mux to settle */
+	/* get the channel number */
+	chan = CR_CHAN(insn->chanspec);
 
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion */
-		/* outw(0,dev->iobase + SKEL_CONVERT); */
-
-#define TIMEOUT 100
-		/* wait for conversion to end */
-		for (i = 0; i < TIMEOUT; i++) {
-			status = 1;
-			/* status = inb(dev->iobase + SKEL_STATUS); */
-			if (status)
-				break;
-		}
-		if (i == TIMEOUT) {
-			/* printk() should be used instead of printk()
-			 * whenever the code can be called from real-time. */
-			pr_info("timeout\n");
-			return -ETIMEDOUT;
-		}
-
+		mb(); smp_mb(); udelay(100);
+		outw_p(0x0030 + chan, devpriv->BADR2 + 2);
+		mb(); smp_mb(); udelay(100);
 		/* read data */
-		/* d = inw(dev->iobase + SKEL_AI_DATA); */
-		d = 0;
-
-		/* mangle the data as necessary */
-		d ^= 1 << (thisboard->ai_bits - 1);
-
+		d = inw_p(devpriv->BADR2);
+		d &= 0x0FFF;
 		data[n] = d;
 	}
 
@@ -294,22 +281,56 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 			  struct comedi_devconfig *it)
 {
 	struct comedi_subdevice *s;
+	struct pci_dev *pcidev;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
 	printk(KERN_INFO "comedi: dyna_pci1050: minor number %d\n", dev->minor);
 
 	dev->board_name = thisboard->name;
+	dev->irq = 0;
 
 	if (alloc_private(dev, sizeof(struct dyna_pci1050_private)) < 0)
 		return -ENOMEM;
+
+	/*
+	 * Probe the device to determine what device in the series it is.
+	 */
+
+	for (pcidev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, NULL);
+	     pcidev != NULL;
+	     pcidev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pcidev)) {
+
+		if (pcidev->vendor != PCI_VENDOR_ID_DYNALOG)
+			continue;
+
+		if (pcidev->device != PCI_DEVICE_ID_DYNALOG_PCI_1050)
+			continue;
+
+		goto found;
+	}
+	printk("comedi: dyna_pci1050: no supported device found!\n");
+	return -EIO;
+
+found:
+	printk("comedi: dyna_pci1050: dynalog device found\n");
+
+	/* initialize device */
+	devpriv->BADR0 = pci_resource_start(pcidev, 0);
+	devpriv->BADR1 = pci_resource_start(pcidev, 1);
+	devpriv->BADR2 = pci_resource_start(pcidev, 2);
+	devpriv->BADR0_SIZE = pci_resource_len(pcidev, 0);
+	devpriv->BADR1_SIZE = pci_resource_len(pcidev, 1);
+	devpriv->BADR2_SIZE = pci_resource_len(pcidev, 2);
+	printk(KERN_INFO "comedi: dyna_pci1050: iobase 0x%4lx : 0x%4lx : 0x%4lx : %lu, %lu, %lu\n",
+               devpriv->BADR0, devpriv->BADR1, devpriv->BADR2, devpriv->BADR0_SIZE, devpriv->BADR1_SIZE, devpriv->BADR2_SIZE);
 
 	if (alloc_subdevices(dev, 1) < 0)
 		return -ENOMEM;
 
 	s = dev->subdevices + 0;
 	s->type = COMEDI_SUBD_AI;
-	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_DIFF;
+	s->subdev_flags = SDF_READABLE | SDF_GROUND;
 	s->n_chan = thisboard->ai_chans;
 	s->maxdata = (1 << thisboard->ai_bits) - 1;
 	s->range_table = &range_pci1050_ai;
