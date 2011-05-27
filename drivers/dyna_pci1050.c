@@ -27,11 +27,22 @@ static const struct comedi_lrange range_pci1050_ai = { 3, {
 							  }
 };
 
+static const struct comedi_lrange range_pci1050_ao = { 1, {
+							  UNI_RANGE(10)
+							  }
+};
+
 struct boardtype {
 	const char *name;
 	int device_id;
 	int ai_chans;
 	int ai_bits;
+	int ao_chans;
+	int ao_bits;
+	int di_chans;
+	int di_bits;
+	int do_chans;
+	int do_bits;
 };
 
 static const struct boardtype boardtypes[] = {
@@ -40,6 +51,12 @@ static const struct boardtype boardtypes[] = {
 	.device_id = PCI_DEVICE_ID_DYNALOG_PCI_1050,
 	.ai_chans = 16,
 	.ai_bits = 12,
+	.ao_chans = 16,
+	.ao_bits = 12,
+	.di_chans = 16,
+	.di_bits = 16,
+	.do_chans = 16,
+	.do_bits = 16,
 	},
 };
 
@@ -71,12 +88,12 @@ struct dyna_pci1050_private {
 #define thisboard ((const struct boardtype *)dev->board_ptr)
 #define devpriv ((struct dyna_pci1050_private *)dev->private)
 
-
 /******************************************************************************/
-/*********************** INITIALIZATION FUNCTIONS *****************************/
+/************************** READ WRITE FUNCTIONS ******************************/
 /******************************************************************************/
 
-static int dyna_pci1050_ai_rinsn(struct comedi_device *dev, struct comedi_subdevice *s,
+/* analog input callback */
+static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_subdevice *s,
 			 struct comedi_insn *insn, unsigned int *data)
 {
 	int n;
@@ -106,6 +123,74 @@ static int dyna_pci1050_ai_rinsn(struct comedi_device *dev, struct comedi_subdev
 	/* return the number of samples read/written */
 	return n;
 }
+
+/* analog output callback */
+static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
+				 struct comedi_subdevice *s,
+				 struct comedi_insn *insn, unsigned int *data)
+{
+	int n;
+	unsigned int chan;
+
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	chan = CR_CHAN(insn->chanspec);
+
+	for (n = 0; n < insn->n; n++) {
+		/* write data */
+		mb(); smp_mb(); udelay(100);
+		outw_p(data[n], devpriv->BADR2);
+		/* trigger conversion */
+		mb(); smp_mb(); udelay(100);
+		outw_p(0x0030 + chan, devpriv->BADR2 + 2);
+	}
+	return n;
+}
+
+/* digital input callback */
+static int dyna_pci1050_insn_bits_di(struct comedi_device *dev,
+				struct comedi_subdevice *s,
+				struct comedi_insn *insn, unsigned int *data)
+{
+	unsigned int chan;
+
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	chan = CR_CHAN(insn->chanspec);
+
+	mb(); smp_mb();
+	data[0] = inw_p(devpriv->BADR1);
+	udelay(100);
+
+	return 2;
+}
+
+/* digital output callback */
+static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
+				struct comedi_subdevice *s,
+				struct comedi_insn *insn, unsigned int *data)
+{
+	unsigned int chan;
+	u16 mask = 1;
+	u16 write_data = 0;
+
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	chan = CR_CHAN(insn->chanspec);
+	mask = mask << chan;
+
+	if (data[0]) {
+		write_data = data[0] & mask;
+		outw_p(write_data, devpriv->BADR1);
+		mb(); smp_mb(); udelay(100);
+	}
+
+	return 2;
+}
+
+/******************************************************************************/
+/*********************** INITIALIZATION FUNCTIONS *****************************/
+/******************************************************************************/
 
 static int dyna_pci1050_ns_to_timer(unsigned int *ns, int round)
 {
@@ -270,7 +355,7 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 
 static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 {
-	struct comedi_cmd *cmd = &s->async->cmd;
+	//struct comedi_cmd *cmd = &s->async->cmd;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
@@ -329,18 +414,58 @@ found:
 	printk(KERN_INFO "comedi: dyna_pci1050: iobase 0x%4lx : 0x%4lx : 0x%4lx : %lu, %lu, %lu\n",
                devpriv->BADR0, devpriv->BADR1, devpriv->BADR2, devpriv->BADR0_SIZE, devpriv->BADR1_SIZE, devpriv->BADR2_SIZE);
 
-	if (alloc_subdevices(dev, 1) < 0)
+	if (alloc_subdevices(dev, 4) < 0)
 		return -ENOMEM;
 
+	/* analog input */
 	s = dev->subdevices + 0;
 	s->type = COMEDI_SUBD_AI;
-	s->subdev_flags = SDF_READABLE | SDF_GROUND;
+	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_COMMON;
 	s->n_chan = thisboard->ai_chans;
 	s->maxdata = 0x8FFF;
 	s->range_table = &range_pci1050_ai;
 	s->len_chanlist = 16;
-	s->insn_read = dyna_pci1050_ai_rinsn;
+	s->insn_read = dyna_pci1050_insn_read_ai;
 	s->subdev_flags |= SDF_CMD_READ;
+	s->do_cmd = dyna_pci1050_ai_cmd;
+	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
+
+	/* analog output */
+	s = dev->subdevices + 1;
+	s->type = COMEDI_SUBD_AO;
+	s->subdev_flags = SDF_WRITABLE | SDF_GROUND | SDF_COMMON;
+	s->n_chan = thisboard->ao_chans;
+	s->maxdata = 0x8FFF;
+	s->range_table = &range_pci1050_ao;
+	s->len_chanlist = 16;
+	s->insn_write = dyna_pci1050_insn_write_ao;
+	s->subdev_flags |= SDF_CMD_WRITE;
+	s->do_cmd = dyna_pci1050_ai_cmd;
+	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
+
+	/* digital input */
+	s = dev->subdevices + 2;
+	s->type = COMEDI_SUBD_DI;
+	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_COMMON;
+	s->n_chan = thisboard->di_chans;
+	s->maxdata = 0xFFFF;
+	s->range_table = &range_digital;
+	s->len_chanlist = 16;
+	s->insn_read = dyna_pci1050_insn_bits_di;
+	s->subdev_flags |= SDF_CMD_READ;
+	s->do_cmd = dyna_pci1050_ai_cmd;
+	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
+
+	/* digital output */
+	s = dev->subdevices + 3;
+	s->type = COMEDI_SUBD_DO;
+	s->subdev_flags = SDF_WRITABLE | SDF_GROUND | SDF_COMMON;
+	s->n_chan = thisboard->do_chans;
+	s->maxdata = 0xFFFF;
+	s->range_table = &range_digital;
+	s->len_chanlist = 16;
+	s->insn_read = dyna_pci1050_insn_bits_do;
+	s->subdev_flags |= SDF_CMD_WRITE;
 	s->do_cmd = dyna_pci1050_ai_cmd;
 	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
 
