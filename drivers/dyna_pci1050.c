@@ -1,3 +1,32 @@
+/*
+ * comedi/drivers/dyna_pci1050.c
+ * Copyright (C) 2011 Prashant Shah, pshah.mumbai@gmail.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
+/*
+ Driver: dyna_pci1050
+ Details : Developed at IIT Bombay http://www.iitb.ac.in, Spoken Tutorial Team
+ Devices: Dynalog PCI 1050 DAQ Card
+ Author: Prashant Shah <pshah.mumbai@gmail.com>
+ Updated: 31 May 2011
+ Status: Stable
+ Version: 0.1 
+*/
+
 #include "../comedidev.h"
 #include "comedi_pci.h"
 
@@ -8,6 +37,8 @@
 #define PCI1050_AREAD	 	0	/* ANALOG READ */
 #define PCI1050_AWRITE	 	0	/* ANALOG WRITE */
 #define PCI1050_ACONTROL	2	/* ANALOG CONTROL */
+
+#define READ_TIMEOUT 50
 
 static DEFINE_PCI_DEVICE_TABLE(dyna_pci1050_pci_table) = {
 	{PCI_VENDOR_ID_DYNALOG, PCI_DEVICE_ID_DYNALOG_PCI_1050, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
@@ -96,7 +127,7 @@ struct dyna_pci1050_private {
 static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_subdevice *s,
 			 struct comedi_insn *insn, unsigned int *data)
 {
-	int n;
+	int n, counter;
 	u16 d;
 	unsigned int chan, range;
 
@@ -110,11 +141,21 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion */
-		mb(); smp_mb(); udelay(100);
+		smp_mb(); udelay(10);
 		outw_p(0x0030 + chan, devpriv->BADR2 + 2);
-		mb(); smp_mb(); udelay(100);
+		smp_mb(); udelay(10);
 		/* read data */
-		d = inw_p(devpriv->BADR2);
+		for (counter = 0; counter < READ_TIMEOUT; counter++) {
+			d = inw_p(devpriv->BADR2);
+			/* check if read is successfull by checking the 16 bit */
+			if (d & (1 << 15)) {
+				goto conv_finish;
+			}
+		}
+		data[n] = 0;
+		printk(KERN_INFO "comedi: dyna_pci1050: timeout reading analog input\n");
+		continue;
+	conv_finish:
 		/* mask the first 4 bits - EOC bits */
 		d &= 0x0FFF;
 		data[n] = d;
@@ -355,9 +396,20 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 
 static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 {
-	//struct comedi_cmd *cmd = &s->async->cmd;
+	struct comedi_cmd *cmd = &s->async->cmd;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+
+	/*  test if cmd is valid */
+	if (cmd == NULL) {
+		printk(KERN_INFO "comedi: dyna_pci1050: NULL command\n");
+		return -EINVAL;
+	} else {
+		printk(KERN_INFO "comedi: dyna_pci1050: command recieved\n");
+	}
+
+	s->async->cur_chan = 0;
+	s->async->inttrig = NULL;
 
 	return 0;
 }
@@ -484,5 +536,5 @@ static int dyna_pci1050_detach(struct comedi_device *dev)
 COMEDI_PCI_INITCLEANUP(dyna_pci1050_driver, dyna_pci1050_pci_table);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Prashant Shah");
+MODULE_AUTHOR("Prashant Shah <pshah.mumbai@gmail.com>");
 
