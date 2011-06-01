@@ -58,10 +58,16 @@ static const struct comedi_lrange range_pci1050_ai = { 3, {
 							  }
 };
 
+static const char range_codes_pci1050_ai[] =
+    { 0x00, 0x10, 0x30 };
+
 static const struct comedi_lrange range_pci1050_ao = { 1, {
 							  UNI_RANGE(10)
 							  }
 };
+
+static const char range_codes_pci1050_ao[] =
+    { 0x00 };
 
 struct boardtype {
 	const char *name;
@@ -74,6 +80,10 @@ struct boardtype {
 	int di_bits;
 	int do_chans;
 	int do_bits;
+	const struct comedi_lrange *range_ai;
+	const char *range_codes_ai;
+	const struct comedi_lrange *range_ao;
+	const char *range_codes_ao;
 };
 
 static const struct boardtype boardtypes[] = {
@@ -88,6 +98,10 @@ static const struct boardtype boardtypes[] = {
 	.di_bits = 16,
 	.do_chans = 16,
 	.do_bits = 16,
+	.range_ai = &range_pci1050_ai,
+	.range_codes_ai = range_codes_pci1050_ai,
+	.range_ao = &range_pci1050_ao,
+	.range_codes_ao = range_codes_pci1050_ao,
 	},
 };
 
@@ -133,16 +147,15 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
-	/* get the channel number */
+	/* get the channel number and range */
 	chan = CR_CHAN(insn->chanspec);
-	range = CR_RANGE(insn->chanspec);
-	printk("range : %d\n", range);
+	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion */
 		smp_mb(); udelay(10);
-		outw_p(0x0030 + chan, devpriv->BADR2 + 2);
+		outw_p(0x0000 + range + chan, devpriv->BADR2 + 2);
 		smp_mb(); udelay(10);
 		/* read data */
 		for (counter = 0; counter < READ_TIMEOUT; counter++) {
@@ -171,19 +184,20 @@ static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
 				 struct comedi_insn *insn, unsigned int *data)
 {
 	int n;
-	unsigned int chan;
+	unsigned int chan, range;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
 	chan = CR_CHAN(insn->chanspec);
+	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
 	for (n = 0; n < insn->n; n++) {
 		/* write data */
-		mb(); smp_mb(); udelay(100);
 		outw_p(data[n], devpriv->BADR2);
+		smp_mb(); udelay(10);
 		/* trigger conversion */
-		mb(); smp_mb(); udelay(100);
-		outw_p(0x0030 + chan, devpriv->BADR2 + 2);
+		outw_p(0x0000 + range + chan, devpriv->BADR2 + 2);
+		smp_mb(); udelay(10);
 	}
 	return n;
 }
@@ -194,14 +208,16 @@ static int dyna_pci1050_insn_bits_di(struct comedi_device *dev,
 				struct comedi_insn *insn, unsigned int *data)
 {
 	unsigned int chan;
+	u16 d;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
 	chan = CR_CHAN(insn->chanspec);
 
-	mb(); smp_mb();
-	data[0] = inw_p(devpriv->BADR1);
-	udelay(100);
+	smp_mb();
+	d = inw_p(devpriv->BADR1);
+	data[0] = d & (1 << chan);
+	udelay(10);
 
 	return 2;
 }
@@ -212,18 +228,17 @@ static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
 				struct comedi_insn *insn, unsigned int *data)
 {
 	unsigned int chan;
-	u16 mask = 1;
-	u16 write_data = 0;
+	u16 d = 0;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
 	chan = CR_CHAN(insn->chanspec);
-	mask = mask << chan;
 
 	if (data[0]) {
-		write_data = data[0] & mask;
-		outw_p(write_data, devpriv->BADR1);
-		mb(); smp_mb(); udelay(100);
+		d = data[0] & (1 << chan);
+		smp_mb();
+		outw_p(d, devpriv->BADR1);
+		udelay(10);
 	}
 
 	return 2;
@@ -475,7 +490,7 @@ found:
 	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_COMMON;
 	s->n_chan = thisboard->ai_chans;
 	s->maxdata = 0x8FFF;
-	s->range_table = &range_pci1050_ai;
+	s->range_table = thisboard->range_ai;
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_insn_read_ai;
 	s->subdev_flags |= SDF_CMD_READ;
@@ -488,7 +503,7 @@ found:
 	s->subdev_flags = SDF_WRITABLE | SDF_GROUND | SDF_COMMON;
 	s->n_chan = thisboard->ao_chans;
 	s->maxdata = 0x8FFF;
-	s->range_table = &range_pci1050_ao;
+	s->range_table = thisboard->range_ao;
 	s->len_chanlist = 16;
 	s->insn_write = dyna_pci1050_insn_write_ao;
 	s->subdev_flags |= SDF_CMD_WRITE;
