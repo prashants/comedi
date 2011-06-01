@@ -30,13 +30,16 @@
 #include "../comedidev.h"
 #include "comedi_pci.h"
 
+#undef DPRINTK
+#ifdef DEBUG
+#define DPRINTK(format, args...) printk(format, ## args)
+#else
+#define DPRINTK(format, args...)
+#endif
+
 #define PCI_VENDOR_ID_DYNALOG           0x10b5
 #define PCI_DEVICE_ID_DYNALOG_PCI_1050  0x1050
 #define DRV_NAME                        "dyna_pci1050"
-
-#define PCI1050_AREAD	 	0	/* ANALOG READ */
-#define PCI1050_AWRITE	 	0	/* ANALOG WRITE */
-#define PCI1050_ACONTROL	2	/* ANALOG CONTROL */
 
 #define READ_TIMEOUT 50
 
@@ -125,9 +128,9 @@ struct dyna_pci1050_private {
 	unsigned int ai_data_len;
 	short *ai_data;
 
-	/* device information */
-	unsigned long BADR0, BADR1, BADR2;
-	unsigned long BADR0_SIZE, BADR1_SIZE, BADR2_SIZE;
+	/* device base address register information */
+	unsigned long BADR0, BADR1, BADR2, BADR3, BADR4, BADR5;
+	unsigned long BADR0_SIZE, BADR1_SIZE, BADR2_SIZE, BADR3_SIZE, BADR4_SIZE, BADR5_SIZE;
 };
 
 #define thisboard ((const struct boardtype *)dev->board_ptr)
@@ -142,10 +145,10 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 			 struct comedi_insn *insn, unsigned int *data)
 {
 	int n, counter;
-	u16 d;
+	u16 d = 0;
 	unsigned int chan, range;
 
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	/* get the channel number and range */
 	chan = CR_CHAN(insn->chanspec);
@@ -186,7 +189,7 @@ static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
 	int n;
 	unsigned int chan, range;
 
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
@@ -208,9 +211,9 @@ static int dyna_pci1050_insn_bits_di(struct comedi_device *dev,
 				struct comedi_insn *insn, unsigned int *data)
 {
 	unsigned int chan;
-	u16 d;
+	u16 d = 0;
 
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	chan = CR_CHAN(insn->chanspec);
 
@@ -230,7 +233,7 @@ static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
 	unsigned int chan;
 	u16 d = 0;
 
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	chan = CR_CHAN(insn->chanspec);
 
@@ -250,7 +253,7 @@ static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
 
 static int dyna_pci1050_ns_to_timer(unsigned int *ns, int round)
 {
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	return *ns;
 }
@@ -270,7 +273,7 @@ static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
 
 	/* step 1: make sure trigger sources are trivially valid */
 
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	tmp = cmd->start_src;
 	cmd->start_src &= TRIG_NOW;
@@ -413,7 +416,7 @@ static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevic
 {
 	struct comedi_cmd *cmd = &s->async->cmd;
 
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	/*  test if cmd is valid */
 	if (cmd == NULL) {
@@ -439,7 +442,7 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 	struct comedi_subdevice *s;
 	struct pci_dev *pcidev;
 
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	printk(KERN_INFO "comedi: dyna_pci1050: minor number %d\n", dev->minor);
 
@@ -469,9 +472,10 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 	return -EIO;
 
 found:
+
 	printk("comedi: dyna_pci1050: dynalog device found\n");
 
-	/* initialize device */
+	/* initialize device base address registers */
 	devpriv->BADR0 = pci_resource_start(pcidev, 0);
 	devpriv->BADR1 = pci_resource_start(pcidev, 1);
 	devpriv->BADR2 = pci_resource_start(pcidev, 2);
@@ -536,6 +540,8 @@ found:
 	s->do_cmd = dyna_pci1050_ai_cmd;
 	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
 
+	devpriv->valid = 1; 
+
 	printk(KERN_INFO "comedi: dyna_pci1050: attached\n");
 
 	return 1;
@@ -543,8 +549,12 @@ found:
 
 static int dyna_pci1050_detach(struct comedi_device *dev)
 {
-	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
+	if (devpriv->pci_dev) {
+		comedi_pci_disable(devpriv->pci_dev);
+		pci_dev_put(devpriv->pci_dev);
+	}
 	return 0;
 }
 
