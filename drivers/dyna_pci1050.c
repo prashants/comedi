@@ -441,11 +441,14 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 {
 	struct comedi_subdevice *s;
 	struct pci_dev *pcidev;
+	unsigned int opt_bus, opt_slot;
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
 	printk(KERN_INFO "comedi: dyna_pci1050: minor number %d\n", dev->minor);
 
+	opt_bus = it->options[0];
+	opt_slot = it->options[1];
 	dev->board_name = thisboard->name;
 	dev->irq = 0;
 
@@ -466,6 +469,14 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 		if (pcidev->device != PCI_DEVICE_ID_DYNALOG_PCI_1050)
 			continue;
 
+		/* Found matching vendor/device. */
+		if (opt_bus || opt_slot) {
+			/* Check bus/slot. */
+			if (opt_bus != pcidev->bus->number
+			    || opt_slot != PCI_SLOT(pcidev->devfn))
+				continue;	/* no match */
+		}
+
 		goto found;
 	}
 	printk("comedi: dyna_pci1050: no supported device found!\n");
@@ -473,7 +484,22 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 
 found:
 
-	printk("comedi: dyna_pci1050: dynalog device found\n");
+	if (comedi_pci_enable(pcidev, DRV_NAME)) {
+		printk(KERN_ERR "comedi: dyna_pci1050: failed to enable PCI device and request regions!");
+		return -EIO;
+	}
+
+	if (!pcidev) {
+		if (opt_bus || opt_slot) {
+			printk(KERN_ERR "comedi: dyna_pci1050: invalid PCI device at b:s %d:%d\n", opt_bus, opt_slot);
+		} else {
+			printk(KERN_ERR "comedi: dyna_pci1050: invalid PCI device\n");
+		}
+		return -EIO;
+	}
+
+	devpriv->pci_dev = pcidev;
+	printk("comedi: dyna_pci1050: device found!\n");
 
 	/* initialize device base address registers */
 	devpriv->BADR0 = pci_resource_start(pcidev, 0);
@@ -551,10 +577,9 @@ static int dyna_pci1050_detach(struct comedi_device *dev)
 {
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
-	if (devpriv->pci_dev) {
+	if (devpriv->pci_dev)
 		comedi_pci_disable(devpriv->pci_dev);
-		pci_dev_put(devpriv->pci_dev);
-	}
+
 	return 0;
 }
 
