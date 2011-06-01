@@ -423,10 +423,10 @@ static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevic
 		printk(KERN_INFO "comedi: dyna_pci1050: command recieved\n");
 	}
 
-	s->async->cur_chan = 0;
-	s->async->inttrig = NULL;
+	//s->async->cur_chan = 0;
+	//s->async->inttrig = NULL;
 
-	return 0;
+	return -EINVAL;
 }
 
 /******************************************************************************/
@@ -489,7 +489,7 @@ found:
 	s->type = COMEDI_SUBD_AI;
 	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_COMMON;
 	s->n_chan = thisboard->ai_chans;
-	s->maxdata = 0x8FFF;
+	s->maxdata = 0x0FFF;
 	s->range_table = thisboard->range_ai;
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_insn_read_ai;
@@ -502,7 +502,7 @@ found:
 	s->type = COMEDI_SUBD_AO;
 	s->subdev_flags = SDF_WRITABLE | SDF_GROUND | SDF_COMMON;
 	s->n_chan = thisboard->ao_chans;
-	s->maxdata = 0x8FFF;
+	s->maxdata = 0x0FFF;
 	s->range_table = thisboard->range_ao;
 	s->len_chanlist = 16;
 	s->insn_write = dyna_pci1050_insn_write_ao;
@@ -515,7 +515,7 @@ found:
 	s->type = COMEDI_SUBD_DI;
 	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_COMMON;
 	s->n_chan = thisboard->di_chans;
-	s->maxdata = 0xFFFF;
+	s->maxdata = 0x1;
 	s->range_table = &range_digital;
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_insn_bits_di;
@@ -528,7 +528,7 @@ found:
 	s->type = COMEDI_SUBD_DO;
 	s->subdev_flags = SDF_WRITABLE | SDF_GROUND | SDF_COMMON;
 	s->n_chan = thisboard->do_chans;
-	s->maxdata = 0xFFFF;
+	s->maxdata = 0x1;
 	s->range_table = &range_digital;
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_insn_bits_do;
