@@ -19,7 +19,7 @@
 
 /*
  Driver: dyna_pci1050
- Details : Developed at IIT Bombay http://www.iitb.ac.in, Spoken Tutorial Team
+ Details : Developed at IIT Bombay http://www.iitb.ac.in
  Devices: Dynalog PCI 1050 DAQ Card
  Author: Prashant Shah <pshah.mumbai@gmail.com>
  Updated: 31 May 2011
@@ -29,6 +29,7 @@
 
 #include "../comedidev.h"
 #include "comedi_pci.h"
+#include "linux/semaphore.h"
 
 #undef DPRINTK
 #ifdef DEBUG
@@ -42,6 +43,8 @@
 #define DRV_NAME                        "dyna_pci1050"
 
 #define READ_TIMEOUT 50
+
+static DECLARE_MUTEX(start_stop_sem);
 
 static DEFINE_PCI_DEVICE_TABLE(dyna_pci1050_pci_table) = {
 	{PCI_VENDOR_ID_DYNALOG, PCI_DEVICE_ID_DYNALOG_PCI_1050, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
@@ -121,12 +124,7 @@ static struct comedi_driver dyna_pci1050_driver = {
 struct dyna_pci1050_private {
 	struct pci_dev *pci_dev;	/*  ptr to PCI device */
 	char valid;			/*  card is usable */
-	int data;
-	unsigned int ai_n_chan;
-	unsigned int *ai_chanlist;
-	unsigned int ai_flags;
-	unsigned int ai_data_len;
-	short *ai_data;
+	struct semaphore sem;
 
 	/* device base address register information */
 	unsigned long BADR0, BADR1, BADR2, BADR3, BADR4, BADR5;
@@ -149,6 +147,8 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 	unsigned int chan, range;
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
+
+	down(&devpriv->sem);
 
 	/* get the channel number and range */
 	chan = CR_CHAN(insn->chanspec);
@@ -179,6 +179,8 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 		data[n] = d;
 	}
 
+	up(&devpriv->sem);
+
 	/* return the number of samples read/written */
 	return n;
 }
@@ -193,6 +195,7 @@ static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
+	down(&devpriv->sem);
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
@@ -204,6 +207,7 @@ static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
 		outw_p(0x0000 + range + chan, devpriv->BADR2 + 2);
 		smp_mb(); udelay(10);
 	}
+	up(&devpriv->sem);
 	return n;
 }
 
@@ -217,13 +221,14 @@ static int dyna_pci1050_insn_bits_di(struct comedi_device *dev,
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
+	down(&devpriv->sem);
 	chan = CR_CHAN(insn->chanspec);
 
 	smp_mb();
 	d = inw_p(devpriv->BADR1);
 	data[0] = d & (1 << chan);
 	udelay(10);
-
+	up(&devpriv->sem);
 	return 2;
 }
 
@@ -237,6 +242,7 @@ static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
+	down(&devpriv->sem);
 	chan = CR_CHAN(insn->chanspec);
 
 	if (data[0]) {
@@ -245,7 +251,7 @@ static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
 		outw_p(d, devpriv->BADR1);
 		udelay(10);
 	}
-
+	up(&devpriv->sem);
 	return 2;
 }
 
@@ -450,13 +456,18 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 
 	printk(KERN_INFO "comedi: dyna_pci1050: minor number %d\n", dev->minor);
 
+	down(&start_stop_sem);
+
+	if (alloc_private(dev, sizeof(struct dyna_pci1050_private)) < 0) {
+		printk(KERN_ERR "comedi: dyna_pci1050: failed to allocate memory!\n");
+		up(&start_stop_sem);
+		return -ENOMEM;
+	}
+
 	opt_bus = it->options[0];
 	opt_slot = it->options[1];
 	dev->board_name = thisboard->name;
 	dev->irq = 0;
-
-	if (alloc_private(dev, sizeof(struct dyna_pci1050_private)) < 0)
-		return -ENOMEM;
 
 	/*
 	 * Probe the PCI bus and located the matching device
@@ -487,6 +498,7 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 		goto found;
 	}
 	printk("comedi: dyna_pci1050: no supported device found!\n");
+	up(&start_stop_sem);
 	return -EIO;
 
 found:
@@ -497,14 +509,17 @@ found:
 		} else {
 			printk(KERN_ERR "comedi: dyna_pci1050: invalid PCI device\n");
 		}
+		up(&start_stop_sem);
 		return -EIO;
 	}
 
 	if (comedi_pci_enable(pcidev, DRV_NAME)) {
 		printk(KERN_ERR "comedi: dyna_pci1050: failed to enable PCI device and request regions!");
+		up(&start_stop_sem);
 		return -EIO;
 	}
 
+	init_MUTEX(&devpriv->sem);
 	dev->board_ptr = &boardtypes[board_index];
 	devpriv->pci_dev = pcidev;
 
@@ -521,7 +536,8 @@ found:
                devpriv->BADR0, devpriv->BADR1, devpriv->BADR2, devpriv->BADR0_SIZE, devpriv->BADR1_SIZE, devpriv->BADR2_SIZE);
 
 	if (alloc_subdevices(dev, 4) < 0) {
-		printk(KERN_ERR "comedi: dyna_pci1050: failed allocating subdevices\n"); 
+		printk(KERN_ERR "comedi: dyna_pci1050: failed allocating subdevices\n");
+		up(&start_stop_sem);
 		return -ENOMEM;
 	}
 
@@ -568,7 +584,8 @@ found:
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_insn_bits_do;
 
-	devpriv->valid = 1; 
+	devpriv->valid = 1;
+	up(&start_stop_sem);
 
 	printk(KERN_INFO "comedi: dyna_pci1050: device setup completed\n");
 
@@ -579,8 +596,9 @@ static int dyna_pci1050_detach(struct comedi_device *dev)
 {
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
-	if (devpriv->pci_dev)
+	if (devpriv->pci_dev) {
 		comedi_pci_disable(devpriv->pci_dev);
+	}
 
 	return 0;
 }
