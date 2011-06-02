@@ -444,6 +444,7 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 	struct comedi_subdevice *s;
 	struct pci_dev *pcidev;
 	unsigned int opt_bus, opt_slot;
+	int board_index, i;
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
@@ -458,17 +459,21 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 		return -ENOMEM;
 
 	/*
-	 * Probe the device to determine what device in the series it is.
+	 * Probe the PCI bus and located the matching device
 	 */
-
 	for (pcidev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, NULL);
-	     pcidev != NULL;
-	     pcidev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pcidev)) {
+		pcidev != NULL;
+		pcidev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pcidev)) {
 
-		if (pcidev->vendor != PCI_VENDOR_ID_DYNALOG)
-			continue;
-
-		if (pcidev->device != PCI_DEVICE_ID_DYNALOG_PCI_1050)
+		board_index = -1;
+		for (i = 0; i < ARRAY_SIZE(boardtypes); ++i) {
+			if ((pcidev->vendor == PCI_VENDOR_ID_DYNALOG) &&
+				(pcidev->device == boardtypes[i].device_id)) {
+					board_index = i;
+					break;
+				}
+		}
+		if (board_index < 0)
 			continue;
 
 		/* Found matching vendor/device. */
@@ -486,7 +491,6 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 
 found:
 
-
 	if (!pcidev) {
 		if (opt_bus || opt_slot) {
 			printk(KERN_ERR "comedi: dyna_pci1050: invalid PCI device at b:s %d:%d\n", opt_bus, opt_slot);
@@ -501,6 +505,7 @@ found:
 		return -EIO;
 	}
 
+	dev->board_ptr = &boardtypes[board_index];
 	devpriv->pci_dev = pcidev;
 
 	printk(KERN_INFO "comedi: dyna_pci1050: device found!\n");
