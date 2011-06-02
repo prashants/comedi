@@ -154,6 +154,8 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
+	printk(KERN_INFO "comedi: dyna_pci1050: channel %d range %d and n %d\n", chan, range, insn->n);
+
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion */
@@ -484,10 +486,6 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 
 found:
 
-	if (comedi_pci_enable(pcidev, DRV_NAME)) {
-		printk(KERN_ERR "comedi: dyna_pci1050: failed to enable PCI device and request regions!");
-		return -EIO;
-	}
 
 	if (!pcidev) {
 		if (opt_bus || opt_slot) {
@@ -498,8 +496,14 @@ found:
 		return -EIO;
 	}
 
+	if (comedi_pci_enable(pcidev, DRV_NAME)) {
+		printk(KERN_ERR "comedi: dyna_pci1050: failed to enable PCI device and request regions!");
+		return -EIO;
+	}
+
 	devpriv->pci_dev = pcidev;
-	printk("comedi: dyna_pci1050: device found!\n");
+
+	printk(KERN_INFO "comedi: dyna_pci1050: device found!\n");
 
 	/* initialize device base address registers */
 	devpriv->BADR0 = pci_resource_start(pcidev, 0);
@@ -511,8 +515,10 @@ found:
 	printk(KERN_INFO "comedi: dyna_pci1050: iobase 0x%4lx : 0x%4lx : 0x%4lx : %lu, %lu, %lu\n",
                devpriv->BADR0, devpriv->BADR1, devpriv->BADR2, devpriv->BADR0_SIZE, devpriv->BADR1_SIZE, devpriv->BADR2_SIZE);
 
-	if (alloc_subdevices(dev, 4) < 0)
+	if (alloc_subdevices(dev, 4) < 0) {
+		printk(KERN_ERR "comedi: dyna_pci1050: failed allocating subdevices\n"); 
 		return -ENOMEM;
+	}
 
 	/* analog input */
 	s = dev->subdevices + 0;
@@ -536,9 +542,6 @@ found:
 	s->range_table = thisboard->range_ao;
 	s->len_chanlist = 16;
 	s->insn_write = dyna_pci1050_insn_write_ao;
-	s->subdev_flags |= SDF_CMD_WRITE;
-	s->do_cmd = dyna_pci1050_ai_cmd;
-	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
 
 	/* digital input */
 	s = dev->subdevices + 2;
@@ -549,9 +552,6 @@ found:
 	s->range_table = &range_digital;
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_insn_bits_di;
-	s->subdev_flags |= SDF_CMD_READ;
-	s->do_cmd = dyna_pci1050_ai_cmd;
-	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
 
 	/* digital output */
 	s = dev->subdevices + 3;
@@ -562,13 +562,10 @@ found:
 	s->range_table = &range_digital;
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_insn_bits_do;
-	s->subdev_flags |= SDF_CMD_WRITE;
-	s->do_cmd = dyna_pci1050_ai_cmd;
-	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
 
 	devpriv->valid = 1; 
 
-	printk(KERN_INFO "comedi: dyna_pci1050: attached\n");
+	printk(KERN_INFO "comedi: dyna_pci1050: device setup completed\n");
 
 	return 1;
 }
