@@ -544,7 +544,7 @@ found:
 	/* analog input */
 	s = dev->subdevices + 0;
 	s->type = COMEDI_SUBD_AI;
-	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_COMMON;
+	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_COMMON | SDF_DIFF;
 	s->n_chan = thisboard->ai_chans;
 	s->maxdata = 0x0FFF;
 	s->range_table = thisboard->range_ai;
@@ -557,7 +557,7 @@ found:
 	/* analog output */
 	s = dev->subdevices + 1;
 	s->type = COMEDI_SUBD_AO;
-	s->subdev_flags = SDF_WRITABLE | SDF_GROUND | SDF_COMMON;
+	s->subdev_flags = SDF_WRITABLE;
 	s->n_chan = thisboard->ao_chans;
 	s->maxdata = 0x0FFF;
 	s->range_table = thisboard->range_ao;
@@ -567,7 +567,7 @@ found:
 	/* digital input */
 	s = dev->subdevices + 2;
 	s->type = COMEDI_SUBD_DI;
-	s->subdev_flags = SDF_READABLE | SDF_GROUND | SDF_COMMON;
+	s->subdev_flags = SDF_READABLE;
 	s->n_chan = thisboard->di_chans;
 	s->maxdata = 0x1;
 	s->range_table = &range_digital;
@@ -577,7 +577,7 @@ found:
 	/* digital output */
 	s = dev->subdevices + 3;
 	s->type = COMEDI_SUBD_DO;
-	s->subdev_flags = SDF_WRITABLE | SDF_GROUND | SDF_COMMON;
+	s->subdev_flags = SDF_WRITABLE;
 	s->n_chan = thisboard->do_chans;
 	s->maxdata = 0x1;
 	s->range_table = &range_digital;
