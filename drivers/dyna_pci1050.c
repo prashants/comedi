@@ -126,9 +126,8 @@ struct dyna_pci1050_private {
 	char valid;			/*  card is usable */
 	struct semaphore sem;
 
-	/* device base address register information */
+	/* device base address registers */
 	unsigned long BADR0, BADR1, BADR2, BADR3, BADR4, BADR5;
-	unsigned long BADR0_SIZE, BADR1_SIZE, BADR2_SIZE, BADR3_SIZE, BADR4_SIZE, BADR5_SIZE;
 };
 
 #define thisboard ((const struct boardtype *)dev->board_ptr)
@@ -529,11 +528,12 @@ found:
 	devpriv->BADR0 = pci_resource_start(pcidev, 0);
 	devpriv->BADR1 = pci_resource_start(pcidev, 1);
 	devpriv->BADR2 = pci_resource_start(pcidev, 2);
-	devpriv->BADR0_SIZE = pci_resource_len(pcidev, 0);
-	devpriv->BADR1_SIZE = pci_resource_len(pcidev, 1);
-	devpriv->BADR2_SIZE = pci_resource_len(pcidev, 2);
-	printk(KERN_INFO "comedi: dyna_pci1050: iobase 0x%4lx : 0x%4lx : 0x%4lx : %lu, %lu, %lu\n",
-               devpriv->BADR0, devpriv->BADR1, devpriv->BADR2, devpriv->BADR0_SIZE, devpriv->BADR1_SIZE, devpriv->BADR2_SIZE);
+	devpriv->BADR3 = pci_resource_start(pcidev, 3);
+	devpriv->BADR4 = pci_resource_start(pcidev, 4);
+	devpriv->BADR5 = pci_resource_start(pcidev, 5);
+
+	printk(KERN_INFO "comedi: dyna_pci1050: iobase 0x%lx : 0x%lx : 0x%lx : 0x%lx : 0x%lx : 0x%lx\n",
+               devpriv->BADR0, devpriv->BADR1, devpriv->BADR2, devpriv->BADR3, devpriv->BADR4, devpriv->BADR5);
 
 	if (alloc_subdevices(dev, 4) < 0) {
 		printk(KERN_ERR "comedi: dyna_pci1050: failed allocating subdevices\n");
