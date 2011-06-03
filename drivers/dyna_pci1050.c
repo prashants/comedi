@@ -29,7 +29,6 @@
 
 #include "../comedidev.h"
 #include "comedi_pci.h"
-#include "linux/semaphore.h"
 
 #undef DPRINTK
 #ifdef DEBUG
@@ -199,11 +198,8 @@ static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
 	for (n = 0; n < insn->n; n++) {
-		/* write data */
+		/* trigger conversion and write data */
 		outw_p(data[n], devpriv->BADR2);
-		smp_mb(); udelay(10);
-		/* trigger conversion */
-		outw_p(0x0000 + range + chan, devpriv->BADR2 + 2);
 		smp_mb(); udelay(10);
 	}
 	up(&devpriv->sem);
@@ -225,7 +221,8 @@ static int dyna_pci1050_insn_bits_di(struct comedi_device *dev,
 
 	smp_mb();
 	d = inw_p(devpriv->BADR3);
-	data[0] = d & (1 << chan);
+	//data[0] = d & (1 << chan);
+	data[0] = d;
 	udelay(10);
 	up(&devpriv->sem);
 	return 2;
@@ -244,18 +241,26 @@ static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
 	down(&devpriv->sem);
 	chan = CR_CHAN(insn->chanspec);
 
-	if (data[0]) {
-		d = data[0] & (1 << chan);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: data %d channel %d\n", data[0], chan);
+
+	if (data[0] == 0) {
+		d = 0;
+		smp_mb();
+		outw_p(d, devpriv->BADR3);
+		udelay(10);
+	} else {
+		d = (1 << chan);
 		smp_mb();
 		outw_p(d, devpriv->BADR3);
 		udelay(10);
 	}
+
 	up(&devpriv->sem);
 	return 2;
 }
 
 /******************************************************************************/
-/*********************** INITIALIZATION FUNCTIONS *****************************/
+/*************************** COMMAND FUNCTIONS ********************************/
 /******************************************************************************/
 
 static int dyna_pci1050_ns_to_timer(unsigned int *ns, int round)
@@ -425,6 +430,7 @@ static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevic
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
+
 	/*  test if cmd is valid */
 	if (cmd == NULL) {
 		printk(KERN_INFO "comedi: dyna_pci1050: NULL command\n");
@@ -433,10 +439,17 @@ static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevic
 		printk(KERN_INFO "comedi: dyna_pci1050: command recieved\n");
 	}
 
-	//s->async->cur_chan = 0;
-	//s->async->inttrig = NULL;
+	printk(KERN_INFO "comedi: dyna_pci1050: buf_read_alloc_count %d\n", s->async->buf_read_alloc_count);
+	printk(KERN_INFO "comedi: dyna_pci1050: buf_read_count %d\n", s->async->buf_read_count);
+	printk(KERN_INFO "comedi: dyna_pci1050: cur_chan %d\n", s->async->cur_chan);
+	printk(KERN_INFO "comedi: dyna_pci1050: events %d\n", s->async->events);
 
-	return -EINVAL;
+	s->async->cur_chan = 0;
+	s->async->inttrig = NULL;
+	s->async->events = 0;
+
+	//return -EINVAL;
+	return 0;
 }
 
 /******************************************************************************/
