@@ -153,7 +153,7 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
-	printk(KERN_INFO "comedi: dyna_pci1050: channel %d range %d and n %d\n", chan, range, insn->n);
+	//printk(KERN_INFO "comedi: dyna_pci1050: channel %d range %d and n %d\n", chan, range, insn->n);
 
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
@@ -224,7 +224,7 @@ static int dyna_pci1050_insn_bits_di(struct comedi_device *dev,
 	chan = CR_CHAN(insn->chanspec);
 
 	smp_mb();
-	d = inw_p(devpriv->BADR1);
+	d = inw_p(devpriv->BADR3);
 	data[0] = d & (1 << chan);
 	udelay(10);
 	up(&devpriv->sem);
@@ -247,7 +247,7 @@ static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
 	if (data[0]) {
 		d = data[0] & (1 << chan);
 		smp_mb();
-		outw_p(d, devpriv->BADR1);
+		outw_p(d, devpriv->BADR3);
 		udelay(10);
 	}
 	up(&devpriv->sem);
@@ -567,22 +567,25 @@ found:
 	/* digital input */
 	s = dev->subdevices + 2;
 	s->type = COMEDI_SUBD_DI;
-	s->subdev_flags = SDF_READABLE;
+	s->subdev_flags = SDF_READABLE | SDF_GROUND;
 	s->n_chan = thisboard->di_chans;
-	s->maxdata = 0x1;
+	s->maxdata = 1;
 	s->range_table = &range_digital;
-	s->len_chanlist = 16;
+	s->len_chanlist = thisboard->di_chans;
+	//s->io_bits = 0;	/* all bits input */
 	s->insn_read = dyna_pci1050_insn_bits_di;
 
 	/* digital output */
 	s = dev->subdevices + 3;
 	s->type = COMEDI_SUBD_DO;
-	s->subdev_flags = SDF_WRITABLE;
+	s->subdev_flags = SDF_WRITABLE | SDF_GROUND;
 	s->n_chan = thisboard->do_chans;
-	s->maxdata = 0x1;
+	s->maxdata = 1;
 	s->range_table = &range_digital;
-	s->len_chanlist = 16;
-	s->insn_read = dyna_pci1050_insn_bits_do;
+	s->len_chanlist = thisboard->do_chans;
+	//s->state = 0;
+	//s->io_bits = (1 << thisboard->do_chans) - 1;	/* all bits output */
+	s->insn_write = dyna_pci1050_insn_bits_do;
 
 	devpriv->valid = 1;
 	up(&start_stop_sem);
