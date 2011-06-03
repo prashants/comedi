@@ -29,6 +29,7 @@
 
 #include "../comedidev.h"
 #include "comedi_pci.h"
+#include <linux/semaphore.h>
 
 #undef DPRINTK
 #ifdef DEBUG
@@ -221,9 +222,8 @@ static int dyna_pci1050_insn_bits_di(struct comedi_device *dev,
 
 	smp_mb();
 	d = inw_p(devpriv->BADR3);
-	//data[0] = d & (1 << chan);
-	data[0] = d;
 	udelay(10);
+	data[0] = d;
 	up(&devpriv->sem);
 	return 2;
 }
@@ -241,7 +241,7 @@ static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
 	down(&devpriv->sem);
 	chan = CR_CHAN(insn->chanspec);
 
-	printk(KERN_DEBUG "comedi: dyna_pci1050: data %d channel %d\n", data[0], chan);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: data %d:%d channel %d\n", data[0], data[1], chan);
 
 	if (data[0] == 0) {
 		d = 0;
