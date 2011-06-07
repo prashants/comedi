@@ -123,7 +123,6 @@ static struct comedi_driver dyna_pci1050_driver = {
 
 struct dyna_pci1050_private {
 	struct pci_dev *pci_dev;	/*  ptr to PCI device */
-	u16 last_do;			/* last digital out */
 	char valid;			/*  card is usable */
 	struct semaphore sem;
 
