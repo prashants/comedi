@@ -437,16 +437,28 @@ static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevic
 		printk(KERN_INFO "comedi: dyna_pci1050: command recieved\n");
 	}
 
+	printk(KERN_INFO "comedi: dyna_pci1050: prealloc_bufsz %d\n", s->async->prealloc_bufsz);
+	printk(KERN_INFO "comedi: dyna_pci1050: max_bufsize %d\n", s->async->max_bufsize);
+	printk(KERN_INFO "comedi: dyna_pci1050: mmap_count %d\n", s->async->mmap_count);
 	printk(KERN_INFO "comedi: dyna_pci1050: buf_read_alloc_count %d\n", s->async->buf_read_alloc_count);
 	printk(KERN_INFO "comedi: dyna_pci1050: buf_read_count %d\n", s->async->buf_read_count);
+	printk(KERN_INFO "comedi: dyna_pci1050: buf_write_count %d\n", s->async->buf_write_count);
+	printk(KERN_INFO "comedi: dyna_pci1050: buf_write_alloc_count %d\n", s->async->buf_write_alloc_count);
+	printk(KERN_INFO "comedi: dyna_pci1050: buf_read_ptr %d\n", s->async->buf_read_ptr);
+	printk(KERN_INFO "comedi: dyna_pci1050: buf_write_ptr %d\n", s->async->buf_write_ptr);
 	printk(KERN_INFO "comedi: dyna_pci1050: cur_chan %d\n", s->async->cur_chan);
 	printk(KERN_INFO "comedi: dyna_pci1050: events %d\n", s->async->events);
+	printk(KERN_INFO "comedi: dyna_pci1050: cur_chan %d\n", s->async->cur_chan);
+	printk(KERN_INFO "comedi: dyna_pci1050: scan_progress %d\n", s->async->scan_progress);
+	printk(KERN_INFO "comedi: dyna_pci1050: munge_chan %d\n", s->async->munge_chan);
+	printk(KERN_INFO "comedi: dyna_pci1050: cb_mask %d\n", s->async->cb_mask);
+	printk(KERN_INFO "comedi: dyna_pci1050: cb_arg %d\n", s->async->cb_arg);
 
-	s->async->cur_chan = 0;
-	s->async->inttrig = NULL;
-	s->async->events = 0;
+	comedi_buf_put(s->async, 0xffff);
+	s->async->events |= COMEDI_CB_EOS | COMEDI_CB_EOA | COMEDI_CB_BLOCK;
+	comedi_event(dev, s);
 
-	return -EINVAL;
+	return 0;
 }
 
 /******************************************************************************/
