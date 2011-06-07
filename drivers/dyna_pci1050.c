@@ -123,6 +123,7 @@ static struct comedi_driver dyna_pci1050_driver = {
 
 struct dyna_pci1050_private {
 	struct pci_dev *pci_dev;	/*  ptr to PCI device */
+	u16 last_do;			/* last digital out */
 	char valid;			/*  card is usable */
 	struct semaphore sem;
 
@@ -147,14 +148,11 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
-	down(&devpriv->sem);
-
 	/* get the channel number and range */
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
-	//printk(KERN_INFO "comedi: dyna_pci1050: channel %d range %d and n %d\n", chan, range, insn->n);
-
+	down(&devpriv->sem);
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion */
@@ -177,7 +175,6 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 		d &= 0x0FFF;
 		data[n] = d;
 	}
-
 	up(&devpriv->sem);
 
 	/* return the number of samples read/written */
@@ -194,10 +191,10 @@ static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
-	down(&devpriv->sem);
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
+	down(&devpriv->sem);
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion and write data */
 		outw_p(data[n], devpriv->BADR2);
@@ -207,55 +204,63 @@ static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
 	return n;
 }
 
-/* digital input callback */
-static int dyna_pci1050_insn_bits_di(struct comedi_device *dev,
-				struct comedi_subdevice *s,
-				struct comedi_insn *insn, unsigned int *data)
+/* test bit interface */
+static int dyna_pci1050_di_insn_bits(struct comedi_device *dev,
+			      struct comedi_subdevice *s,
+			      struct comedi_insn *insn, unsigned int *data)
 {
-	unsigned int chan;
 	u16 d = 0;
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
-	down(&devpriv->sem);
-	chan = CR_CHAN(insn->chanspec);
+	if (insn->n != 2)
+		return -EINVAL;
 
+	down(&devpriv->sem);
 	smp_mb();
 	d = inw_p(devpriv->BADR3);
 	udelay(10);
-	data[0] = d;
 	up(&devpriv->sem);
+
+	/* on return the data[0] contains output and data[1] contains input */ 
+	data[1] = d;
+	data[0] = s->state;
+
 	return 2;
 }
 
-/* digital output callback */
-static int dyna_pci1050_insn_bits_do(struct comedi_device *dev,
-				struct comedi_subdevice *s,
-				struct comedi_insn *insn, unsigned int *data)
+static int dyna_pci1050_do_insn_bits(struct comedi_device *dev,
+			      struct comedi_subdevice *s,
+			      struct comedi_insn *insn, unsigned int *data)
 {
-	unsigned int chan;
-	u16 d = 0;
-
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
-	down(&devpriv->sem);
-	chan = CR_CHAN(insn->chanspec);
+	if (insn->n != 2)
+		return -EINVAL;
 
-	printk(KERN_DEBUG "comedi: dyna_pci1050: data %d:%d channel %d\n", data[0], data[1], chan);
+	/* The insn data is a mask in data[0] and the new data
+	 * in data[1], each channel cooresponding to a bit.
+	 * s->state contains the previous write data
+	 */
 
-	if (data[0] == 0) {
-		d = 0;
+	if (data[0]) {
+		down(&devpriv->sem);
+		s->state &= ~data[0];
+		s->state |= (data[0] & data[1]);
 		smp_mb();
-		outw_p(d, devpriv->BADR3);
+		outw_p(s->state, devpriv->BADR3);
 		udelay(10);
-	} else {
-		d = (1 << chan);
-		smp_mb();
-		outw_p(d, devpriv->BADR3);
-		udelay(10);
+		up(&devpriv->sem);
+		//printk(KERN_DEBUG "comedi: dyna_pci1050: data %d:%d state %d\n", data[0], data[1], s->state);
 	}
 
-	up(&devpriv->sem);
+	/*
+	 * On return, data[1] contains the value of the digital
+	 * input and output lines. We just return the software copy of the
+	 * output values if it was a purely digital output subdevice.
+	 */
+	data[1] = s->state;
+
 	return 2;
 }
 
@@ -448,8 +453,7 @@ static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevic
 	s->async->inttrig = NULL;
 	s->async->events = 0;
 
-	//return -EINVAL;
-	return 0;
+	return -EINVAL;
 }
 
 /******************************************************************************/
@@ -585,8 +589,7 @@ found:
 	s->maxdata = 1;
 	s->range_table = &range_digital;
 	s->len_chanlist = thisboard->di_chans;
-	//s->io_bits = 0;	/* all bits input */
-	s->insn_read = dyna_pci1050_insn_bits_di;
+	s->insn_bits = dyna_pci1050_di_insn_bits;
 
 	/* digital output */
 	s = dev->subdevices + 3;
@@ -596,9 +599,8 @@ found:
 	s->maxdata = 1;
 	s->range_table = &range_digital;
 	s->len_chanlist = thisboard->do_chans;
-	//s->state = 0;
-	//s->io_bits = (1 << thisboard->do_chans) - 1;	/* all bits output */
-	s->insn_write = dyna_pci1050_insn_bits_do;
+	s->state = 0;
+	s->insn_bits = dyna_pci1050_do_insn_bits;
 
 	devpriv->valid = 1;
 	up(&start_stop_sem);
