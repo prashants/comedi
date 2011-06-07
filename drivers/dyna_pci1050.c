@@ -19,24 +19,18 @@
 
 /*
  Driver: dyna_pci1050
- Details : Developed at IIT Bombay http://www.iitb.ac.in
  Devices: Dynalog PCI 1050 DAQ Card
  Author: Prashant Shah <pshah.mumbai@gmail.com>
- Updated: 31 May 2011
+ Developed at Automation Labs, Chemical Dept., IIT Bombay, India.
+ Prof. Kannan Moudgalya <kannan@iitb.ac.in>
+ http://www.iitb.ac.in
  Status: Stable
- Version: 0.1 
+ Version: 1.0
 */
 
 #include "../comedidev.h"
 #include "comedi_pci.h"
 #include <linux/semaphore.h>
-
-#undef DPRINTK
-#ifdef DEBUG
-#define DPRINTK(format, args...) printk(format, ## args)
-#else
-#define DPRINTK(format, args...)
-#endif
 
 #define PCI_VENDOR_ID_DYNALOG           0x10b5
 #define PCI_DEVICE_ID_DYNALOG_PCI_1050  0x1050
@@ -161,7 +155,7 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 		/* read data */
 		for (counter = 0; counter < READ_TIMEOUT; counter++) {
 			d = inw_p(devpriv->BADR2);
-			/* check if read is successfull by checking the 16 bit */
+			/* check if read is successfull if the EOC bit is set */
 			if (d & (1 << 15)) {
 				goto conv_finish;
 			}
@@ -203,7 +197,7 @@ static int dyna_pci1050_insn_write_ao(struct comedi_device *dev,
 	return n;
 }
 
-/* test bit interface */
+/* digital input bit interface */
 static int dyna_pci1050_di_insn_bits(struct comedi_device *dev,
 			      struct comedi_subdevice *s,
 			      struct comedi_insn *insn, unsigned int *data)
@@ -228,6 +222,7 @@ static int dyna_pci1050_di_insn_bits(struct comedi_device *dev,
 	return 2;
 }
 
+/* digital output bit interface */
 static int dyna_pci1050_do_insn_bits(struct comedi_device *dev,
 			      struct comedi_subdevice *s,
 			      struct comedi_insn *insn, unsigned int *data)
@@ -433,7 +428,6 @@ static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevic
 	struct comedi_cmd *cmd = &s->async->cmd;
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
-
 
 	/*  test if cmd is valid */
 	if (cmd == NULL) {
