@@ -161,7 +161,7 @@ static int dyna_pci1050_insn_read_ai(struct comedi_device *dev, struct comedi_su
 			}
 		}
 		data[n] = 0;
-		printk(KERN_INFO "comedi: dyna_pci1050: timeout reading analog input\n");
+		printk(KERN_DEBUG "comedi: dyna_pci1050: timeout reading analog input\n");
 		continue;
 	conv_finish:
 		/* mask the first 4 bits - EOC bits */
@@ -245,7 +245,6 @@ static int dyna_pci1050_do_insn_bits(struct comedi_device *dev,
 		outw_p(s->state, devpriv->BADR3);
 		udelay(10);
 		up(&devpriv->sem);
-		//printk(KERN_DEBUG "comedi: dyna_pci1050: data %d:%d state %d\n", data[0], data[1], s->state);
 	}
 
 	/*
@@ -256,209 +255,6 @@ static int dyna_pci1050_do_insn_bits(struct comedi_device *dev,
 	data[1] = s->state;
 
 	return 2;
-}
-
-/******************************************************************************/
-/*************************** COMMAND FUNCTIONS ********************************/
-/******************************************************************************/
-
-static int dyna_pci1050_ns_to_timer(unsigned int *ns, int round)
-{
-	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
-
-	return *ns;
-}
-
-static int dyna_pci1050_ai_cmdtest(struct comedi_device *dev,
-			   struct comedi_subdevice *s, struct comedi_cmd *cmd)
-{
-	int err = 0;
-	int tmp;
-
-	/* cmdtest tests a particular command to see if it is valid.
-	 * Using the cmdtest ioctl, a user can create a valid cmd
-	 * and then have it executes by the cmd ioctl.
-	 *
-	 * cmdtest returns 1,2,3,4 or 0, depending on which tests
-	 * the command passes. */
-
-	/* step 1: make sure trigger sources are trivially valid */
-
-	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
-
-	tmp = cmd->start_src;
-	cmd->start_src &= TRIG_NOW;
-	if (!cmd->start_src || tmp != cmd->start_src)
-		err++;
-
-	tmp = cmd->scan_begin_src;
-	cmd->scan_begin_src &= TRIG_TIMER | TRIG_EXT;
-	if (!cmd->scan_begin_src || tmp != cmd->scan_begin_src)
-		err++;
-
-	tmp = cmd->convert_src;
-	cmd->convert_src &= TRIG_TIMER | TRIG_EXT;
-	if (!cmd->convert_src || tmp != cmd->convert_src)
-		err++;
-
-	tmp = cmd->scan_end_src;
-	cmd->scan_end_src &= TRIG_COUNT;
-	if (!cmd->scan_end_src || tmp != cmd->scan_end_src)
-		err++;
-
-	tmp = cmd->stop_src;
-	cmd->stop_src &= TRIG_COUNT | TRIG_NONE;
-	if (!cmd->stop_src || tmp != cmd->stop_src)
-		err++;
-
-	if (err)
-		return 1;
-
-	/* step 2: make sure trigger sources are unique and mutually compatible */
-
-	/* note that mutual compatibility is not an issue here */
-	if (cmd->scan_begin_src != TRIG_TIMER &&
-	    cmd->scan_begin_src != TRIG_EXT)
-		err++;
-	if (cmd->convert_src != TRIG_TIMER && cmd->convert_src != TRIG_EXT)
-		err++;
-	if (cmd->stop_src != TRIG_COUNT && cmd->stop_src != TRIG_NONE)
-		err++;
-
-	if (err)
-		return 2;
-
-	/* step 3: make sure arguments are trivially compatible */
-
-	if (cmd->start_arg != 0) {
-		cmd->start_arg = 0;
-		err++;
-	}
-#define MAX_SPEED	10000	/* in nanoseconds */
-#define MIN_SPEED	1000000000	/* in nanoseconds */
-
-	if (cmd->scan_begin_src == TRIG_TIMER) {
-		if (cmd->scan_begin_arg < MAX_SPEED) {
-			cmd->scan_begin_arg = MAX_SPEED;
-			err++;
-		}
-		if (cmd->scan_begin_arg > MIN_SPEED) {
-			cmd->scan_begin_arg = MIN_SPEED;
-			err++;
-		}
-	} else {
-		/* external trigger */
-		/* should be level/edge, hi/lo specification here */
-		/* should specify multiple external triggers */
-		if (cmd->scan_begin_arg > 9) {
-			cmd->scan_begin_arg = 9;
-			err++;
-		}
-	}
-	if (cmd->convert_src == TRIG_TIMER) {
-		if (cmd->convert_arg < MAX_SPEED) {
-			cmd->convert_arg = MAX_SPEED;
-			err++;
-		}
-		if (cmd->convert_arg > MIN_SPEED) {
-			cmd->convert_arg = MIN_SPEED;
-			err++;
-		}
-	} else {
-		/* external trigger */
-		/* see above */
-		if (cmd->convert_arg > 9) {
-			cmd->convert_arg = 9;
-			err++;
-		}
-	}
-
-	if (cmd->scan_end_arg != cmd->chanlist_len) {
-		cmd->scan_end_arg = cmd->chanlist_len;
-		err++;
-	}
-	if (cmd->stop_src == TRIG_COUNT) {
-		if (cmd->stop_arg > 0x00ffffff) {
-			cmd->stop_arg = 0x00ffffff;
-			err++;
-		}
-	} else {
-		/* TRIG_NONE */
-		if (cmd->stop_arg != 0) {
-			cmd->stop_arg = 0;
-			err++;
-		}
-	}
-
-	if (err)
-		return 3;
-
-	/* step 4: fix up any arguments */
-
-	if (cmd->scan_begin_src == TRIG_TIMER) {
-		tmp = cmd->scan_begin_arg;
-		dyna_pci1050_ns_to_timer(&cmd->scan_begin_arg,
-				 cmd->flags & TRIG_ROUND_MASK);
-		if (tmp != cmd->scan_begin_arg)
-			err++;
-	}
-	if (cmd->convert_src == TRIG_TIMER) {
-		tmp = cmd->convert_arg;
-		dyna_pci1050_ns_to_timer(&cmd->convert_arg,
-				 cmd->flags & TRIG_ROUND_MASK);
-		if (tmp != cmd->convert_arg)
-			err++;
-		if (cmd->scan_begin_src == TRIG_TIMER &&
-		    cmd->scan_begin_arg <
-		    cmd->convert_arg * cmd->scan_end_arg) {
-			cmd->scan_begin_arg =
-			    cmd->convert_arg * cmd->scan_end_arg;
-			err++;
-		}
-	}
-
-	if (err)
-		return 4;
-
-	return 0;
-}
-
-static int dyna_pci1050_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
-{
-	struct comedi_cmd *cmd = &s->async->cmd;
-
-	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
-
-	/*  test if cmd is valid */
-	if (cmd == NULL) {
-		printk(KERN_INFO "comedi: dyna_pci1050: NULL command\n");
-		return -EINVAL;
-	} else {
-		printk(KERN_INFO "comedi: dyna_pci1050: command recieved\n");
-	}
-
-	printk(KERN_INFO "comedi: dyna_pci1050: prealloc_bufsz %d\n", s->async->prealloc_bufsz);
-	printk(KERN_INFO "comedi: dyna_pci1050: max_bufsize %d\n", s->async->max_bufsize);
-	printk(KERN_INFO "comedi: dyna_pci1050: mmap_count %d\n", s->async->mmap_count);
-	printk(KERN_INFO "comedi: dyna_pci1050: buf_read_alloc_count %d\n", s->async->buf_read_alloc_count);
-	printk(KERN_INFO "comedi: dyna_pci1050: buf_read_count %d\n", s->async->buf_read_count);
-	printk(KERN_INFO "comedi: dyna_pci1050: buf_write_count %d\n", s->async->buf_write_count);
-	printk(KERN_INFO "comedi: dyna_pci1050: buf_write_alloc_count %d\n", s->async->buf_write_alloc_count);
-	printk(KERN_INFO "comedi: dyna_pci1050: buf_read_ptr %d\n", s->async->buf_read_ptr);
-	printk(KERN_INFO "comedi: dyna_pci1050: buf_write_ptr %d\n", s->async->buf_write_ptr);
-	printk(KERN_INFO "comedi: dyna_pci1050: cur_chan %d\n", s->async->cur_chan);
-	printk(KERN_INFO "comedi: dyna_pci1050: events %d\n", s->async->events);
-	printk(KERN_INFO "comedi: dyna_pci1050: cur_chan %d\n", s->async->cur_chan);
-	printk(KERN_INFO "comedi: dyna_pci1050: scan_progress %d\n", s->async->scan_progress);
-	printk(KERN_INFO "comedi: dyna_pci1050: munge_chan %d\n", s->async->munge_chan);
-	printk(KERN_INFO "comedi: dyna_pci1050: cb_mask %d\n", s->async->cb_mask);
-	printk(KERN_INFO "comedi: dyna_pci1050: cb_arg %d\n", s->async->cb_arg);
-
-	comedi_buf_put(s->async, 0xffff);
-	s->async->events |= COMEDI_CB_EOS | COMEDI_CB_EOA | COMEDI_CB_BLOCK;
-	comedi_event(dev, s);
-
-	return 0;
 }
 
 /******************************************************************************/
@@ -475,7 +271,7 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 
 	printk(KERN_DEBUG "comedi: dyna_pci1050: %s\n", __func__);
 
-	printk(KERN_INFO "comedi: dyna_pci1050: minor number %d\n", dev->minor);
+	printk(KERN_DEBUG "comedi: dyna_pci1050: minor number: %d\n", dev->minor);
 
 	down(&start_stop_sem);
 
@@ -518,7 +314,7 @@ static int dyna_pci1050_attach(struct comedi_device *dev,
 
 		goto found;
 	}
-	printk("comedi: dyna_pci1050: no supported device found!\n");
+	printk(KERN_ERR "comedi: dyna_pci1050: no supported device found!\n");
 	up(&start_stop_sem);
 	return -EIO;
 
@@ -554,7 +350,7 @@ found:
 	devpriv->BADR4 = pci_resource_start(pcidev, 4);
 	devpriv->BADR5 = pci_resource_start(pcidev, 5);
 
-	printk(KERN_INFO "comedi: dyna_pci1050: iobase 0x%lx : 0x%lx : 0x%lx : 0x%lx : 0x%lx : 0x%lx\n",
+	printk(KERN_DEBUG "comedi: dyna_pci1050: iobase addresses 0x%lx : 0x%lx : 0x%lx : 0x%lx : 0x%lx : 0x%lx\n",
                devpriv->BADR0, devpriv->BADR1, devpriv->BADR2, devpriv->BADR3, devpriv->BADR4, devpriv->BADR5);
 
 	if (alloc_subdevices(dev, 4) < 0) {
@@ -572,9 +368,6 @@ found:
 	s->range_table = thisboard->range_ai;
 	s->len_chanlist = 16;
 	s->insn_read = dyna_pci1050_insn_read_ai;
-	s->subdev_flags |= SDF_CMD_READ;
-	s->do_cmd = dyna_pci1050_ai_cmd;
-	s->do_cmdtest = dyna_pci1050_ai_cmdtest;
 
 	/* analog output */
 	s = dev->subdevices + 1;
