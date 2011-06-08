@@ -22,13 +22,13 @@ clean:
 		rm -rf ./kcomedilib/*.o ./kcomedilib/*.ko ./kcomedilib/*.mod.c ./kcomedilib/.*.cmd
 
 copy:
-	sudo cp drivers/dyna_pci1050.ko /lib/modules/$(shell uname -r)/kernel/drivers/staging/comedi/drivers/dyna_pci1050.ko
+	sudo cp drivers/dyna_pci10xx.ko /lib/modules/$(shell uname -r)/kernel/drivers/staging/comedi/drivers/dyna_pci10xx.ko
 	sudo depmod -a
 
 remove:
-	sudo rmmod dyna_pci1050
+	sudo rmmod dyna_pci10xx
 	sudo rmmod comedi
-	sudo modprobe dyna_pci1050
+	sudo modprobe dyna_pci10xx
 
 depend .depend dep:
 	        $(CC) $(CFLAGS) -M *.c > .depend
