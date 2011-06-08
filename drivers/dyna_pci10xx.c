@@ -100,6 +100,8 @@ static const struct boardtype boardtypes[] = {
 	.range_ao = &range_pci1050_ao,
 	.range_codes_ao = range_codes_pci1050_ao,
 	},
+	/*  dummy entry corresponding to driver name */
+	{.name = DRV_NAME},
 };
 
 static struct comedi_driver dyna_pci10xx_driver = {
@@ -410,7 +412,8 @@ found:
 	devpriv->valid = 1;
 	up(&start_stop_sem);
 
-	printk(KERN_INFO "comedi: dyna_pci10xx: device setup completed !! %s\n", boardtypes[board_index].name);
+	printk(KERN_INFO "comedi: dyna_pci10xx: %s - device setup completed!\n",
+		boardtypes[board_index].name);
 
 	return 1;
 }
