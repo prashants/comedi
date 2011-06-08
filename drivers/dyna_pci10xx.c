@@ -148,8 +148,6 @@ static int dyna_pci10xx_insn_read_ai(struct comedi_device *dev,
 	u16 d = 0;
 	unsigned int chan, range;
 
-	printk(KERN_DEBUG "comedi: dyna_pci10xx: %s\n", __func__);
-
 	/* get the channel number and range */
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
@@ -192,8 +190,6 @@ static int dyna_pci10xx_insn_write_ao(struct comedi_device *dev,
 	int n;
 	unsigned int chan, range;
 
-	printk(KERN_DEBUG "comedi: dyna_pci10xx: %s\n", __func__);
-
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
@@ -213,8 +209,6 @@ static int dyna_pci10xx_di_insn_bits(struct comedi_device *dev,
 			      struct comedi_insn *insn, unsigned int *data)
 {
 	u16 d = 0;
-
-	printk(KERN_DEBUG "comedi: dyna_pci10xx: %s\n", __func__);
 
 	if (insn->n != 2)
 		return -EINVAL;
@@ -237,8 +231,6 @@ static int dyna_pci10xx_do_insn_bits(struct comedi_device *dev,
 			      struct comedi_subdevice *s,
 			      struct comedi_insn *insn, unsigned int *data)
 {
-	printk(KERN_DEBUG "comedi: dyna_pci10xx: %s\n", __func__);
-
 	if (insn->n != 2)
 		return -EINVAL;
 
@@ -278,10 +270,6 @@ static int dyna_pci10xx_attach(struct comedi_device *dev,
 	struct pci_dev *pcidev;
 	unsigned int opt_bus, opt_slot;
 	int board_index, i;
-
-	printk(KERN_DEBUG "comedi: dyna_pci10xx: %s\n", __func__);
-
-	printk(KERN_DEBUG "comedi: dyna_pci10xx: minor no.: %d\n", dev->minor);
 
 	down(&start_stop_sem);
 
@@ -365,11 +353,6 @@ found:
 	devpriv->BADR4 = pci_resource_start(pcidev, 4);
 	devpriv->BADR5 = pci_resource_start(pcidev, 5);
 
-	printk(KERN_DEBUG "comedi: dyna_pci10xx: iobase addresses "
-		"0x%lx : 0x%lx : 0x%lx : 0x%lx : 0x%lx : 0x%lx\n",
-		devpriv->BADR0, devpriv->BADR1, devpriv->BADR2,
-		devpriv->BADR3, devpriv->BADR4, devpriv->BADR5);
-
 	if (alloc_subdevices(dev, 4) < 0) {
 		printk(KERN_ERR "comedi: dyna_pci10xx: "
 			"failed allocating subdevices\n");
@@ -429,8 +412,6 @@ found:
 
 static int dyna_pci10xx_detach(struct comedi_device *dev)
 {
-	printk(KERN_DEBUG "comedi: dyna_pci10xx: %s\n", __func__);
-
 	if (devpriv->pci_dev)
 		comedi_pci_disable(devpriv->pci_dev);
 
