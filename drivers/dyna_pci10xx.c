@@ -19,13 +19,15 @@
 
 /*
  Driver: dyna_pci10xx
- Devices: Dynalog India PCI DAQ Card, http://www.dynalogindia.com/
+ Devices: Dynalog India PCI DAQ Cards, http://www.dynalogindia.com/
  Author: Prashant Shah <pshah.mumbai@gmail.com>
  Developed at Automation Labs, Chemical Dept., IIT Bombay, India.
  Prof. Kannan Moudgalya <kannan@iitb.ac.in>
  http://www.iitb.ac.in
  Status: Stable
  Version: 1.0
+ Device Supported :
+ - Dynalog PCI 1050
 */
 
 #include "../comedidev.h"
@@ -432,4 +434,4 @@ COMEDI_PCI_INITCLEANUP(dyna_pci10xx_driver, dyna_pci10xx_pci_table);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Prashant Shah <pshah.mumbai@gmail.com>");
-
+MODULE_DESCRIPTION("Comedi based drivers for Dynalog PCI DAQ cards");
