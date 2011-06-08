@@ -28,6 +28,13 @@
  Version: 1.0
  Device Supported :
  - Dynalog PCI 1050
+
+ Notes :
+ - Dynalog India Pvt. Ltd. does not have a registered PCI Vendor ID and
+ they are using the PLX Technlogies Vendor ID since that is the PCI Chip used
+ in the card.
+ - Dynalog India Pvt. Ltd. has provided the internal register specification for
+ their cards in their manuals.
 */
 
 #include "../comedidev.h"
