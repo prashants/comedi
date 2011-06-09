@@ -46,11 +46,13 @@
 
 #define READ_TIMEOUT 50
 
-static DECLARE_MUTEX(start_stop_sem);
+
+
+static DEFINE_MUTEX(start_stop_sem);
 
 static DEFINE_PCI_DEVICE_TABLE(dyna_pci10xx_pci_table) = {
-	{PCI_VENDOR_ID_DYNALOG, 0x1050, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-	{0}
+	{ PCI_DEVICE(PCI_VENDOR_ID_DYNALOG, 0x1050) },
+	{ 0 }
 };
 
 MODULE_DEVICE_TABLE(pci, dyna_pci10xx_pci_table);
@@ -113,7 +115,7 @@ static const struct boardtype boardtypes[] = {
 	{.name = DRV_NAME},
 };
 
-static struct comedi_driver dyna_pci10xx_driver = {
+static struct comedi_driver driver_dyna_pci10xx = {
 	.driver_name = DRV_NAME,
 	.module = THIS_MODULE,
 	.attach = dyna_pci10xx_attach,
@@ -271,12 +273,12 @@ static int dyna_pci10xx_attach(struct comedi_device *dev,
 	unsigned int opt_bus, opt_slot;
 	int board_index, i;
 
-	down(&start_stop_sem);
+	mutex_lock(&start_stop_sem);
 
 	if (alloc_private(dev, sizeof(struct dyna_pci10xx_private)) < 0) {
 		printk(KERN_ERR "comedi: dyna_pci10xx: "
 			"failed to allocate memory!\n");
-		up(&start_stop_sem);
+		mutex_unlock(&start_stop_sem);
 		return -ENOMEM;
 	}
 
@@ -314,7 +316,7 @@ static int dyna_pci10xx_attach(struct comedi_device *dev,
 		goto found;
 	}
 	printk(KERN_ERR "comedi: dyna_pci10xx: no supported device found!\n");
-	up(&start_stop_sem);
+	mutex_unlock(&start_stop_sem);
 	return -EIO;
 
 found:
@@ -328,18 +330,18 @@ found:
 			printk(KERN_ERR "comedi: dyna_pci10xx: "
 				"invalid PCI device\n");
 		}
-		up(&start_stop_sem);
+		mutex_unlock(&start_stop_sem);
 		return -EIO;
 	}
 
 	if (comedi_pci_enable(pcidev, DRV_NAME)) {
 		printk(KERN_ERR "comedi: dyna_pci10xx: "
 			"failed to enable PCI device and request regions!");
-		up(&start_stop_sem);
+		mutex_unlock(&start_stop_sem);
 		return -EIO;
 	}
 
-	init_MUTEX(&devpriv->sem);
+	sema_init(&devpriv->sem, 1);
 	dev->board_ptr = &boardtypes[board_index];
 	devpriv->pci_dev = pcidev;
 
@@ -356,7 +358,7 @@ found:
 	if (alloc_subdevices(dev, 4) < 0) {
 		printk(KERN_ERR "comedi: dyna_pci10xx: "
 			"failed allocating subdevices\n");
-		up(&start_stop_sem);
+		mutex_unlock(&start_stop_sem);
 		return -ENOMEM;
 	}
 
@@ -402,7 +404,7 @@ found:
 	s->insn_bits = dyna_pci10xx_do_insn_bits;
 
 	devpriv->valid = 1;
-	up(&start_stop_sem);
+	mutex_unlock(&start_stop_sem);
 
 	printk(KERN_INFO "comedi: dyna_pci10xx: %s - device setup completed!\n",
 		boardtypes[board_index].name);
@@ -418,7 +420,45 @@ static int dyna_pci10xx_detach(struct comedi_device *dev)
 	return 0;
 }
 
-COMEDI_PCI_INITCLEANUP(dyna_pci10xx_driver, dyna_pci10xx_pci_table);
+/* COMEDI_PCI_INITCLEANUP(dyna_pci10xx_driver, dyna_pci10xx_pci_table); */
+
+static int __devinit driver_dyna_pci10xx_pci_probe(struct pci_dev *dev,
+					      const struct pci_device_id *ent)
+{
+	return comedi_pci_auto_config(dev, driver_dyna_pci10xx.driver_name);
+}
+
+static void __devexit driver_dyna_pci10xx_pci_remove(struct pci_dev *dev)
+{
+	comedi_pci_auto_unconfig(dev);
+}
+
+static struct pci_driver driver_dyna_pci10xx_pci_driver = {
+	.id_table = dyna_pci10xx_pci_table,
+	.probe = &driver_dyna_pci10xx_pci_probe,
+	.remove = __devexit_p(&driver_dyna_pci10xx_pci_remove)
+};
+
+static int __init driver_dyna_pci10xx_init_module(void)
+{
+	int retval;
+
+	retval = comedi_driver_register(&driver_dyna_pci10xx);
+	if (retval < 0)
+		return retval;
+
+	driver_dyna_pci10xx_pci_driver.name = (char *)driver_dyna_pci10xx.driver_name;
+	return pci_register_driver(&driver_dyna_pci10xx_pci_driver);
+}
+
+static void __exit driver_dyna_pci10xx_cleanup_module(void)
+{
+	pci_unregister_driver(&driver_dyna_pci10xx_pci_driver);
+	comedi_driver_unregister(&driver_dyna_pci10xx);
+}
+
+module_init(driver_dyna_pci10xx_init_module);
+module_exit(driver_dyna_pci10xx_cleanup_module);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Prashant Shah <pshah.mumbai@gmail.com>");
