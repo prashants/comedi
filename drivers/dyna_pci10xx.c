@@ -39,14 +39,12 @@
 
 #include "../comedidev.h"
 #include "comedi_pci.h"
-#include <linux/semaphore.h>
+#include <linux/mutex.h>
 
 #define PCI_VENDOR_ID_DYNALOG		0x10b5
 #define DRV_NAME			"dyna_pci10xx"
 
 #define READ_TIMEOUT 50
-
-
 
 static DEFINE_MUTEX(start_stop_sem);
 
@@ -128,7 +126,7 @@ static struct comedi_driver driver_dyna_pci10xx = {
 struct dyna_pci10xx_private {
 	struct pci_dev *pci_dev;	/*  ptr to PCI device */
 	char valid;			/*  card is usable */
-	struct semaphore sem;
+	struct mutex mutex;
 
 	/* device base address registers */
 	unsigned long BADR0, BADR1, BADR2, BADR3, BADR4, BADR5;
@@ -154,7 +152,7 @@ static int dyna_pci10xx_insn_read_ai(struct comedi_device *dev,
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
-	down(&devpriv->sem);
+	mutex_lock(&devpriv->mutex);
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion */
@@ -178,7 +176,7 @@ conv_finish:
 		d &= 0x0FFF;
 		data[n] = d;
 	}
-	up(&devpriv->sem);
+	mutex_unlock(&devpriv->mutex);
 
 	/* return the number of samples read/written */
 	return n;
@@ -195,13 +193,13 @@ static int dyna_pci10xx_insn_write_ao(struct comedi_device *dev,
 	chan = CR_CHAN(insn->chanspec);
 	range = thisboard->range_codes_ai[CR_RANGE((insn->chanspec))];
 
-	down(&devpriv->sem);
+	mutex_lock(&devpriv->mutex);
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion and write data */
 		outw_p(data[n], devpriv->BADR2);
 		smp_mb(); udelay(10);
 	}
-	up(&devpriv->sem);
+	mutex_unlock(&devpriv->mutex);
 	return n;
 }
 
@@ -215,11 +213,11 @@ static int dyna_pci10xx_di_insn_bits(struct comedi_device *dev,
 	if (insn->n != 2)
 		return -EINVAL;
 
-	down(&devpriv->sem);
+	mutex_lock(&devpriv->mutex);
 	smp_mb();
 	d = inw_p(devpriv->BADR3);
 	udelay(10);
-	up(&devpriv->sem);
+	mutex_unlock(&devpriv->mutex);
 
 	/* on return the data[0] contains output and data[1] contains input */
 	data[1] = d;
@@ -240,15 +238,13 @@ static int dyna_pci10xx_do_insn_bits(struct comedi_device *dev,
 	 * in data[1], each channel cooresponding to a bit.
 	 * s->state contains the previous write data
 	 */
-
+	mutex_lock(&devpriv->mutex);
 	if (data[0]) {
-		down(&devpriv->sem);
 		s->state &= ~data[0];
 		s->state |= (data[0] & data[1]);
 		smp_mb();
 		outw_p(s->state, devpriv->BADR3);
 		udelay(10);
-		up(&devpriv->sem);
 	}
 
 	/*
@@ -257,7 +253,7 @@ static int dyna_pci10xx_do_insn_bits(struct comedi_device *dev,
 	 * output values if it was a purely digital output subdevice.
 	 */
 	data[1] = s->state;
-
+	mutex_unlock(&devpriv->mutex);
 	return 2;
 }
 
@@ -341,7 +337,7 @@ found:
 		return -EIO;
 	}
 
-	sema_init(&devpriv->sem, 1);
+	mutex_init(&devpriv->mutex);
 	dev->board_ptr = &boardtypes[board_index];
 	devpriv->pci_dev = pcidev;
 
@@ -414,13 +410,11 @@ found:
 
 static int dyna_pci10xx_detach(struct comedi_device *dev)
 {
-	if (devpriv->pci_dev)
+	if (devpriv && devpriv->pci_dev)
 		comedi_pci_disable(devpriv->pci_dev);
 
 	return 0;
 }
-
-/* COMEDI_PCI_INITCLEANUP(dyna_pci10xx_driver, dyna_pci10xx_pci_table); */
 
 static int __devinit driver_dyna_pci10xx_pci_probe(struct pci_dev *dev,
 					      const struct pci_device_id *ent)
