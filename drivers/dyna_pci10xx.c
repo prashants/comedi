@@ -156,9 +156,9 @@ static int dyna_pci10xx_insn_read_ai(struct comedi_device *dev,
 	/* convert n samples */
 	for (n = 0; n < insn->n; n++) {
 		/* trigger conversion */
-		smp_mb(); udelay(10);
+		smp_mb();
 		outw_p(0x0000 + range + chan, devpriv->BADR2 + 2);
-		smp_mb(); udelay(10);
+		udelay(10);
 		/* read data */
 		for (counter = 0; counter < READ_TIMEOUT; counter++) {
 			d = inw_p(devpriv->BADR2);
@@ -195,9 +195,10 @@ static int dyna_pci10xx_insn_write_ao(struct comedi_device *dev,
 
 	mutex_lock(&devpriv->mutex);
 	for (n = 0; n < insn->n; n++) {
+		smp_mb();
 		/* trigger conversion and write data */
 		outw_p(data[n], devpriv->BADR2);
-		smp_mb(); udelay(10);
+		udelay(10);
 	}
 	mutex_unlock(&devpriv->mutex);
 	return n;
@@ -217,12 +218,11 @@ static int dyna_pci10xx_di_insn_bits(struct comedi_device *dev,
 	smp_mb();
 	d = inw_p(devpriv->BADR3);
 	udelay(10);
-	mutex_unlock(&devpriv->mutex);
 
 	/* on return the data[0] contains output and data[1] contains input */
 	data[1] = d;
 	data[0] = s->state;
-
+	mutex_unlock(&devpriv->mutex);
 	return 2;
 }
 
@@ -410,8 +410,10 @@ found:
 
 static int dyna_pci10xx_detach(struct comedi_device *dev)
 {
-	if (devpriv && devpriv->pci_dev)
+	if (devpriv && devpriv->pci_dev) {
 		comedi_pci_disable(devpriv->pci_dev);
+		mutex_destroy(&devpriv->mutex);
+	}
 
 	return 0;
 }
@@ -441,7 +443,8 @@ static int __init driver_dyna_pci10xx_init_module(void)
 	if (retval < 0)
 		return retval;
 
-	driver_dyna_pci10xx_pci_driver.name = (char *)driver_dyna_pci10xx.driver_name;
+	driver_dyna_pci10xx_pci_driver.name =
+		(char *)driver_dyna_pci10xx.driver_name;
 	return pci_register_driver(&driver_dyna_pci10xx_pci_driver);
 }
 
