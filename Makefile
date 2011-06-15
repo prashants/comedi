@@ -23,8 +23,11 @@ clean:
 
 copy:
 	sudo cp drivers/ni_usb6008.ko /lib/modules/$(shell uname -r)/kernel/drivers/staging/comedi/drivers/ni_usb6008.ko
-	sudo cp comedi.ko /lib/modules/$(shell uname -r)/kernel/drivers/staging/comedi/comedi.ko
 	sudo depmod -a
+
+remove:
+	sudo rmmod ni_usb6008
+	sudo modprobe ni_usb6008
 
 depend .depend dep:
 	        $(CC) $(CFLAGS) -M *.c > .depend
