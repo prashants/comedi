@@ -1,7 +1,3 @@
-#define DRIVER_VERSION "v2.4"
-#define DRIVER_AUTHOR "Bernd Porr, BerndPorr@f2s.com"
-#define DRIVER_DESC "Stirling/ITL USB-DUX -- Bernd.Porr@f2s.com"
-
 /**
    comedi/drivers/ni_usb600.c
    Copyright (C) 2003-2007 Bernd Porr, Bernd.Porr@f2s.com
@@ -19,7 +15,6 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
  */
 
 #include <linux/kernel.h>
@@ -82,21 +77,25 @@ static struct usb_driver ni_6008_driver = {
 
 static int ni_6008_open(struct inode *inode, struct file *file)
 {
+	printk(KERN_INFO "ni_6008: %s\n", __func__);
 	return 0;
 }
 
 static int ni_6008_release(struct inode *inode, struct file *file)
 {
+	printk(KERN_INFO "ni_6008: %s\n", __func__);
 	return 0;
 }
 
 static ssize_t ni_6008_read(struct file *file, char __user *buffer, size_t count, loff_t *ppos)
 {
+	printk(KERN_INFO "ni_6008: %s\n", __func__);
 	return 0;
 }
 
 static ssize_t ni_6008_write(struct file *file, const char __user *user_buffer, size_t count, loff_t *ppos)
 {
+	printk(KERN_INFO "ni_6008: %s\n", __func__);
 	return 0;
 }
 
@@ -105,6 +104,8 @@ static ssize_t ni_6008_write(struct file *file, const char __user *user_buffer, 
 static void ni_6008_delete(struct kref *kref)
 {	
 	struct usb_ni_6008 *dev = to_ni_dev(kref);
+
+	printk(KERN_INFO "ni_6008: %s\n", __func__);
 
 	usb_put_dev(dev->udev);
 	kfree (dev->bulk_in_buffer);
@@ -120,6 +121,8 @@ static int ni_6008_probe(struct usb_interface *interface, const struct usb_devic
 	int i;
 	int retval = -ENOMEM;
 
+	printk(KERN_INFO "ni_6008: %s\n", __func__);
+
 	dev = kmalloc(sizeof(struct usb_ni_6008), GFP_KERNEL);
 	if (dev == NULL) {
 		err("Out of memory");
@@ -131,12 +134,33 @@ static int ni_6008_probe(struct usb_interface *interface, const struct usb_devic
 	dev->interface = interface;
 
 	iface_desc = interface->cur_altsetting;
-	if (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
-	}
+	printk(KERN_INFO "number of endpoints %d\n", iface_desc->desc.bNumEndpoints);
 
-	if (!(dev->bulk_in_endpoint_addr && dev->bulk_out_endpoint_addr)) {
-		printk(KERN_ERR "could not find both bulk-in and bulk-out endpoints\n");
-		goto error;
+	for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
+		endpoint = &iface_desc->endpoint[i].desc;
+		printk(KERN_INFO "endpoint at %d\n", endpoint->bEndpointAddress);
+
+		if (!dev->bulk_in_endpoint_addr
+			&& (endpoint->bEndpointAddress & USB_DIR_IN)) {
+			//&& ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_BULK)) {
+			/* found a bulk in endpoint */
+			buffer_size = endpoint->wMaxPacketSize;
+			dev->bulk_in_size = buffer_size;
+			dev->bulk_in_endpoint_addr = endpoint->bEndpointAddress;
+			dev->bulk_in_buffer = kmalloc(buffer_size, GFP_KERNEL);
+			if (!dev->bulk_in_buffer) {
+				printk(KERN_ERR "could not allocate bulk in buffer\n");
+				goto error;
+			}
+			printk(KERN_INFO "found bulk in endpoint at %d with size %d\n", dev->bulk_in_endpoint_addr, dev->bulk_in_size);
+		}
+		if (!dev->bulk_out_endpoint_addr
+			&& (endpoint->bEndpointAddress & USB_DIR_OUT)) {
+			//&& ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_BULK)) {
+			/* found a bulk out endpoint */
+			dev->bulk_out_endpoint_addr = endpoint->bEndpointAddress;
+			printk(KERN_ERR "found bulk out endpoint at %d\n", dev->bulk_out_endpoint_addr);
+		}
 	}
 
 	usb_set_intfdata(interface, dev);
@@ -161,6 +185,8 @@ static void ni_6008_disconnect(struct usb_interface *interface)
 {
 	struct ni_6008_dev *dev;
 	int minor = interface->minor;
+
+	printk(KERN_INFO "ni_6008: %s\n", __func__);
 
 	dev = usb_get_intfdata(interface);
 	usb_set_intfdata(interface, NULL);
@@ -194,6 +220,6 @@ static void __exit exit_ni_6008(void)
 module_init(init_ni_6008);
 module_exit(exit_ni_6008);
 
-MODULE_AUTHOR(DRIVER_AUTHOR);
-MODULE_DESCRIPTION(DRIVER_DESC);
+MODULE_AUTHOR("Prashant Shah");
+MODULE_DESCRIPTION("USB Test Driver");
 MODULE_LICENSE("GPL");
