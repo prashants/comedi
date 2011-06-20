@@ -27,7 +27,7 @@
 
 static int ni_6008_probe(struct usb_interface *, const struct usb_device_id *);
 static void ni_6008_disconnect(struct usb_interface *);
-static void ni_6008_delete(struct kref *);
+//static void ni_6008_delete(struct kref *);
 static int ni_6008_open(struct inode *, struct file *);
 static int ni_6008_release(struct inode *, struct file *);
 static ssize_t ni_6008_read(struct file *, char __user *, size_t, loff_t *);
@@ -36,10 +36,23 @@ static ssize_t ni_6008_write(struct file *, const char __user *, size_t, loff_t 
 struct usb_ni_6008 {
 	struct usb_device *udev;
 	struct usb_interface *interface;
-	unsigned char *bulk_in_buffer;
-	size_t bulk_in_size;
-	__u8 bulk_in_endpoint_addr;
-	__u8 bulk_out_endpoint_addr;
+
+	unsigned char *bulk1_buffer;
+	size_t bulk1_size;
+	__u8 bulk1_endpoint_addr;
+
+	unsigned char *bulk2_buffer;
+	size_t bulk2_size;
+	__u8 bulk2_endpoint_addr;
+
+	unsigned char *bulk3_buffer;
+	size_t bulk3_size;
+	__u8 bulk3_endpoint_addr;
+
+	unsigned char *bulk4_buffer;
+	size_t bulk4_size;
+	__u8 bulk4_endpoint_addr;
+
 	struct kref kref;
 };
 
@@ -77,20 +90,78 @@ static struct usb_driver ni_6008_driver = {
 
 static int ni_6008_open(struct inode *inode, struct file *file)
 {
+	struct usb_ni_6008 *dev;
+	struct usb_interface *interface;
+	int subminor;
+	int retval = 0;
+
 	printk(KERN_INFO "ni_6008: %s\n", __func__);
-	return 0;
+
+	subminor = iminor(inode);
+
+	interface = usb_find_interface(&ni_6008_driver, subminor);
+	if (!interface) {
+		err ("%s - error, can't find device for minor %d", __FUNCTION__, subminor);
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	dev = usb_get_intfdata(interface);
+	if (!dev) {
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	/* increment our usage count for the device */
+	//kref_get(&dev->kref);
+
+	/* save our object in the file's private structure */
+	file->private_data = dev;
+
+exit:
+	return retval;
 }
 
 static int ni_6008_release(struct inode *inode, struct file *file)
 {
+	struct usb_ni_6008 *dev;
+
 	printk(KERN_INFO "ni_6008: %s\n", __func__);
+
+	dev = (struct usb_ni_6008 *)file->private_data;
+	if (dev == NULL)
+		return -ENODEV;
+
+	/* decrement the count on our device */
+	//kref_put(&dev->kref, skel_delete);
 	return 0;
 }
 
 static ssize_t ni_6008_read(struct file *file, char __user *buffer, size_t count, loff_t *ppos)
 {
+	struct usb_ni_6008 *dev;
+	int retval = 0;
+
 	printk(KERN_INFO "ni_6008: %s\n", __func__);
-	return 0;
+
+	dev = (struct usb_ni_6008 *)file->private_data;
+	
+	/* do a blocking bulk read to get data from the device */
+	retval = usb_bulk_msg(dev->udev,
+			      usb_rcvbulkpipe(dev->udev, dev->bulk1_endpoint_addr),
+			      dev->bulk1_buffer,
+			      min(dev->bulk1_size, count),
+			      &count, HZ*10);
+
+	/* if the read was successful, copy the data to userspace */
+	if (!retval) {
+		if (copy_to_user(buffer, dev->bulk1_buffer, count))
+			retval = -EFAULT;
+		else
+			retval = count;
+	}
+
+	return retval;
 }
 
 static ssize_t ni_6008_write(struct file *file, const char __user *user_buffer, size_t count, loff_t *ppos)
@@ -101,6 +172,7 @@ static ssize_t ni_6008_write(struct file *file, const char __user *user_buffer, 
 
 /******************************************************************************/
 
+/*
 static void ni_6008_delete(struct kref *kref)
 {	
 	struct usb_ni_6008 *dev = to_ni_dev(kref);
@@ -108,9 +180,13 @@ static void ni_6008_delete(struct kref *kref)
 	printk(KERN_INFO "ni_6008: %s\n", __func__);
 
 	usb_put_dev(dev->udev);
-	kfree (dev->bulk_in_buffer);
+	kfree (dev->bulk1_buffer);
+	kfree (dev->bulk2_buffer);
+	kfree (dev->bulk3_buffer);
+	kfree (dev->bulk4_buffer);
 	kfree (dev);
 }
+*/
 
 static int ni_6008_probe(struct usb_interface *interface, const struct usb_device_id *id)
 {
@@ -118,7 +194,6 @@ static int ni_6008_probe(struct usb_interface *interface, const struct usb_devic
 	struct usb_host_interface *iface_desc;
 	struct usb_endpoint_descriptor *endpoint;
 	size_t buffer_size;
-	int i;
 	int retval = -ENOMEM;
 
 	printk(KERN_INFO "ni_6008: %s\n", __func__);
@@ -136,32 +211,49 @@ static int ni_6008_probe(struct usb_interface *interface, const struct usb_devic
 	iface_desc = interface->cur_altsetting;
 	printk(KERN_INFO "number of endpoints %d\n", iface_desc->desc.bNumEndpoints);
 
-	for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
-		endpoint = &iface_desc->endpoint[i].desc;
-		printk(KERN_INFO "endpoint at %d\n", endpoint->bEndpointAddress);
-
-		if (!dev->bulk_in_endpoint_addr
-			&& (endpoint->bEndpointAddress & USB_DIR_IN)) {
-			//&& ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_BULK)) {
-			/* found a bulk in endpoint */
-			buffer_size = endpoint->wMaxPacketSize;
-			dev->bulk_in_size = buffer_size;
-			dev->bulk_in_endpoint_addr = endpoint->bEndpointAddress;
-			dev->bulk_in_buffer = kmalloc(buffer_size, GFP_KERNEL);
-			if (!dev->bulk_in_buffer) {
-				printk(KERN_ERR "could not allocate bulk in buffer\n");
-				goto error;
-			}
-			printk(KERN_INFO "found bulk in endpoint at %d with size %d\n", dev->bulk_in_endpoint_addr, dev->bulk_in_size);
-		}
-		if (!dev->bulk_out_endpoint_addr
-			&& (endpoint->bEndpointAddress & USB_DIR_OUT)) {
-			//&& ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_BULK)) {
-			/* found a bulk out endpoint */
-			dev->bulk_out_endpoint_addr = endpoint->bEndpointAddress;
-			printk(KERN_ERR "found bulk out endpoint at %d\n", dev->bulk_out_endpoint_addr);
-		}
+	endpoint = &iface_desc->endpoint[0].desc;
+	buffer_size = endpoint->wMaxPacketSize;
+	dev->bulk1_size = buffer_size;
+	dev->bulk1_endpoint_addr = endpoint->bEndpointAddress;
+	dev->bulk1_buffer = kmalloc(buffer_size, GFP_KERNEL);
+	if (!dev->bulk1_buffer) {
+		printk(KERN_ERR "could not allocate bulk in buffer\n");
+		goto error;
 	}
+	printk(KERN_INFO "found bulk endpoint at %d with size %d\n", dev->bulk1_endpoint_addr, dev->bulk1_size);
+
+	endpoint = &iface_desc->endpoint[1].desc;
+	buffer_size = endpoint->wMaxPacketSize;
+	dev->bulk2_size = buffer_size;
+	dev->bulk2_endpoint_addr = endpoint->bEndpointAddress;
+	dev->bulk2_buffer = kmalloc(buffer_size, GFP_KERNEL);
+	if (!dev->bulk2_buffer) {
+		printk(KERN_ERR "could not allocate bulk in buffer\n");
+		goto error;
+	}
+	printk(KERN_INFO "found bulk endpoint at %d with size %d\n", dev->bulk2_endpoint_addr, dev->bulk2_size);
+
+	endpoint = &iface_desc->endpoint[2].desc;
+	buffer_size = endpoint->wMaxPacketSize;
+	dev->bulk3_size = buffer_size;
+	dev->bulk3_endpoint_addr = endpoint->bEndpointAddress;
+	dev->bulk3_buffer = kmalloc(buffer_size, GFP_KERNEL);
+	if (!dev->bulk3_buffer) {
+		printk(KERN_ERR "could not allocate bulk in buffer\n");
+		goto error;
+	}
+	printk(KERN_INFO "found bulk endpoint at %d with size %d\n", dev->bulk3_endpoint_addr, dev->bulk3_size);
+
+	endpoint = &iface_desc->endpoint[3].desc;
+	buffer_size = endpoint->wMaxPacketSize;
+	dev->bulk4_size = buffer_size;
+	dev->bulk4_endpoint_addr = endpoint->bEndpointAddress;
+	dev->bulk4_buffer = kmalloc(buffer_size, GFP_KERNEL);
+	if (!dev->bulk4_buffer) {
+		printk(KERN_ERR "could not allocate bulk in buffer\n");
+		goto error;
+	}
+	printk(KERN_INFO "found bulk endpoint at %d with size %d\n", dev->bulk4_endpoint_addr, dev->bulk4_size);
 
 	usb_set_intfdata(interface, dev);
 
@@ -176,8 +268,8 @@ static int ni_6008_probe(struct usb_interface *interface, const struct usb_devic
 	return 0;
 
 error:
-	if (dev)
-		kref_put(&dev->kref, ni_6008_delete);
+	//if (dev)
+		//kref_get(&dev->kref, ni_6008_delete);
 	return retval;
 }
 
