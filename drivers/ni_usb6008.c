@@ -151,7 +151,7 @@ static ssize_t ni_6008_read(struct file *file, char __user *buffer, size_t count
 			      usb_rcvbulkpipe(dev->udev, dev->bulk1_endpoint_addr),
 			      dev->bulk1_buffer,
 			      min(dev->bulk1_size, count),
-			      &count, HZ*10);
+			      &count, HZ*100);
 
 	/* if the read was successful, copy the data to userspace */
 	if (!retval) {
