@@ -12,7 +12,6 @@
 unsigned long iobase0, iobase1, iobase2, iobase3, iobase4, iobase5;
 unsigned long iosize0, iosize1, iosize2, iosize3, iosize4, iosize5;
 
-
 static int dyna_pci1050_read_proc(char *page, char **start, off_t
 offset, int count, int *eof, void *data)
 {
@@ -26,7 +25,6 @@ offset, int count, int *eof, void *data)
 		outw_p(0x0030 + counter, iobase2 + 2);
 		mb(); smp_mb(); mdelay(10);
 		data16 = inw_p(iobase2);
-		//data16 &= 0x0111;
 		mb(); smp_mb(); mdelay(10);
 		printk(KERN_INFO "reading data iobase2 for channel %2d : %4d %04X\n", counter, data16, data16);
 	}
@@ -39,15 +37,14 @@ offset, int count, int *eof, void *data)
 static int dyna_pci1050_probe(struct pci_dev *dev, const struct
 pci_device_id *id)
 {
-       int counter = 0;
-       unsigned long pci_resource;
+	int counter = 0;
+	unsigned long pci_resource;
 	int ret;
 
-       printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
 
 	ret = pci_enable_device(dev);
 	printk(KERN_INFO "comedi: dyna_pci1050: pci_enable_device %d\n", ret);
-	
 
        /* deivce related information */
        printk(KERN_ERR "comedi: dyna_pci1050: bus number %d\n", dev->bus->number);
@@ -65,19 +62,16 @@ pci_device_id *id)
                printk(KERN_INFO "comedi: dyna_pci1050 : pci_resource_flags : %d : %08lX\n", counter, pci_resource);
        }
 
-       iobase0 = pci_resource_start(dev, 0);
-       iobase1 = pci_resource_start(dev, 1);
-       iobase2 = pci_resource_start(dev, 2);
-       iobase3 = pci_resource_start(dev, 3);
-       iobase4 = pci_resource_start(dev, 4);
-       iobase5 = pci_resource_start(dev, 5);
+	iobase0 = pci_resource_start(dev, 0);
+	iobase1 = pci_resource_start(dev, 1);
+	iobase2 = pci_resource_start(dev, 2);
+	iobase3 = pci_resource_start(dev, 3);
+	iobase4 = pci_resource_start(dev, 4);
+	iobase5 = pci_resource_start(dev, 5);
 
 	iosize1 = pci_resource_len(dev, 1);
 	iosize2 = pci_resource_len(dev, 2);
 	iosize3 = pci_resource_len(dev, 3);
-
-       printk(KERN_INFO "comedi: dyna_pci1050: iobase 0x%4lx : 0x%4lx : 0x%4lx : 0x%4lx : 0x%4lx : 0x%4lx\n",
-               iobase0, iobase1, iobase2, iobase3, iobase4, iobase5);
 
        if (request_region(iobase1, iosize1, DRV_NAME))
                printk(KERN_INFO "comedi: dyna_pci1050: acquired iobase1 0x%4lx\n", iobase1);
@@ -125,15 +119,15 @@ MODULE_DEVICE_TABLE(pci, dyna_pci1050_driver);
 
 static int __init dyna_pci1050_init(void)
 {
-       printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
-       pci_register_driver(&dyna_pci1050_driver);
-       return 0;
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	pci_register_driver(&dyna_pci1050_driver);
+	return 0;
 }
 
 static void __exit dyna_pci1050_exit(void)
 {
-       printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
-       pci_unregister_driver(&dyna_pci1050_driver);
+	printk(KERN_INFO "comedi: dyna_pci1050: %s\n", __func__);
+	pci_unregister_driver(&dyna_pci1050_driver);
 }
 
 module_init(dyna_pci1050_init);
